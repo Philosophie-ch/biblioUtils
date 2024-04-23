@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from typing import List
+from typing import Generator, List
 
 
 def not_appears_in_text(text: str, key: str) -> bool:
@@ -10,20 +10,21 @@ def not_appears_in_text(text: str, key: str) -> bool:
     return key not in text
 
 
-def main(key_list: List[str], text: str) -> List[str]:
+def main(key_list: List[str], text: str) -> Generator[str, None, None]:
     """
     From a list of keys, return the keys that do not appear in the text.
     The keys that do not appear in the text are returned in a list with no duplicates.
+    Returns a generator, for memory efficiency.
     """
-    output = []
-    for key in key_list:
-        if not_appears_in_text(text, key):
-            output.append(key)
 
-    return list(set(output))
+    key_list_uniq = list(set(key_list))
+
+    output = (key for key in key_list_uniq if not_appears_in_text(text, key))
+
+    return output
 
 
-def cli_presenter(output: List[str]) -> str:
+def cli_presenter(output: Generator[str, None, None]) -> str:
     """
     Format the output for the command line interface: one key per line to be printed to stdout
     """
