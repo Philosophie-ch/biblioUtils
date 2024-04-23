@@ -17,7 +17,17 @@ def main(title_list: Iterable[str]) -> Generator[str, None, None]:
     Loop over the main functionality. Returns a generator of title cased strings, as it's more memory-efficient than returning a list.
     """
 
-    return (title_casing(title) for title in title_list)
+    output = (title_casing(title) for title in title_list)
+
+    return output
+
+
+def cli_presenter(output: Generator[str, None, None]) -> str:
+    """
+    Format the output for the command line interface: one title per line
+    """
+
+    return "".join(output)
 
 
 def cli() -> None:
@@ -27,7 +37,7 @@ def cli() -> None:
 
     parser = argparse.ArgumentParser(description="Convert a list of strings to title case.")
 
-    parser.add_argument("file", type=argparse.FileType("r"), help="File containing a list of strings to convert to title case. Each line of the file must be a string that we want to titlecase.")
+    parser.add_argument("--file", type=argparse.FileType("r"), help="File containing a list of strings to convert to title case. Each line of the file must be a string that we want to titlecase.")
 
     titles_raw: Iterable[str] = parser.parse_args().file
 
@@ -35,11 +45,7 @@ def cli() -> None:
     # Main
     titles = main(titles_raw)
 
-
-    # Secondary effects
-    for title in titles:
-        print(title, end="")
-    print()
+    print(cli_presenter(titles))
 
 
 if __name__ == "__main__":
