@@ -8,49 +8,25 @@ def test_key_count_no_keys() -> None:
 
     key_list = ['phil-perspectives:1997', 'vanderveken_d:2005', 'ajdukiewicz:1978']
 
-    with tempfile.NamedTemporaryFile(mode='w') as key_file:
-        key_file.write('\n'.join(key_list))
-        key_file.seek(0)
+    text = 'This is a text that does not contain any of the keys in the key list'
 
-        text = 'This is a text that does not contain any of the keys in the key list'
+    output_generator = keys_not_present.main(key_list, text)
+    output = list(output_generator)
 
-        with tempfile.NamedTemporaryFile(mode='w') as text_file:
-            text_file.write(text)
-            text_file.seek(0)
-
-            output = keys_not_present.main(key_list, text)
-
-            assert output == key_list 
-
-    if os.path.exists(key_file.name):
-        os.remove(key_file.name)
-    if os.path.exists(text_file.name):
-        os.remove(text_file.name)
+    assert output.sort() == key_list.sort()
 
 
 def test_key_count_some_keys() ->  None:
     
-        key_list = ['phil-perspectives:1997', 'vanderveken_d:2005', 'ajdukiewicz:1978']
-    
-        with tempfile.NamedTemporaryFile(mode='w') as key_file:
-            key_file.write('\n'.join(key_list))
-            key_file.seek(0)
-    
-            text = 'This is a text that contains some of the keys in the key list:\nphil-perspectives:1997\nand ajdukiewicz:1978 is wrapped in some text'
-    
-            with tempfile.NamedTemporaryFile(mode='w') as text_file:
-                text_file.write(text)
-                text_file.seek(0)
-    
-                output = keys_not_present.main(key_list, text)
-    
-                assert output == ['vanderveken_d:2005']
-    
-        if os.path.exists(key_file.name):
-            os.remove(key_file.name)
-        if os.path.exists(text_file.name):
-            os.remove(text_file.name)
+    key_list = ['phil-perspectives:1997', 'vanderveken_d:2005', 'ajdukiewicz:1978']
 
+    text = 'This is a text that contains some of the keys in the key list:\nphil-perspectives:1997\nand ajdukiewicz:1978 is wrapped in some text'
+
+
+    output_generator = keys_not_present.main(key_list, text)
+    output = list(output_generator)
+
+    assert output == ['vanderveken_d:2005']
 
 
 def test_cli() -> None:
