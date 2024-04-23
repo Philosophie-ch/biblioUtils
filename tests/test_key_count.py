@@ -21,5 +21,7 @@ def test_key_count_no_keys() -> None:
 
             assert output == key_list 
 
-    os.remove(key_file.name)
-    os.remove(text_file.name)
+    if os.path.exists(key_file.name):
+        os.remove(key_file.name)
+    if os.path.exists(text_file.name):
+        os.remove(text_file.name)
