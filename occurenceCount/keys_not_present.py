@@ -12,14 +12,15 @@ def not_appears_in_text(text: str, key: str) -> bool:
 
 def main(key_list: List[str], text: str) -> List[str]:
     """
-    From a list of keys, return the keys that do not appear in the text
+    From a list of keys, return the keys that do not appear in the text.
+    The keys that do not appear in the text are returned in a list with no duplicates.
     """
     output = []
     for key in key_list:
         if not_appears_in_text(text, key):
             output.append(key)
 
-    return output
+    return list(set(output))
 
 
 def cli_presenter(output: List[str]) -> str:
