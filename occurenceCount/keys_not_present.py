@@ -18,8 +18,15 @@ def main(key_list: List[str], text: str) -> List[str]:
     for key in key_list:
         if not_appears_in_text(text, key):
             output.append(key)
+
     return output
 
+
+def cli_presenter(output: List[str]) -> str:
+    """
+    Format the output for the command line interface: one key per line to be printed to stdout
+    """
+    return "\n".join(output)
 
 
 def cli() -> None:
@@ -30,20 +37,22 @@ def cli() -> None:
     import argparse
 
     parser = argparse.ArgumentParser(description='Count the number of times a key appears in a text')
-    parser.add_argument('key-file', type=str, help='The file containing the keys to search for')
-    parser.add_argument('text-file', type=str, help='The file containing the text to search')
+    parser.add_argument('--key-file', type=str, help='The file containing the keys to search for')
+    parser.add_argument('--text-file', type=str, help='The file containing the text to search')
 
     args = parser.parse_args()
 
     with open(args.key_file, 'r') as f:
-        keys = f.readlines().strip()
+        keys = f.readlines()
+
+    keys = [key.strip() for key in keys]
 
     with open(args.text_file, 'r') as f:
         text = f.read()
 
     output = main(keys, text)
 
-    print(output)
+    print(cli_presenter(output))
 
 
 if __name__ == '__main__':
