@@ -1,6 +1,6 @@
 import os
 import subprocess
-from utils import keys_not_present
+from src.utils import keys_not_present
 import tempfile
 
 
@@ -58,7 +58,7 @@ def test_cli() -> None:
             text_file.write(text)
             text_file.seek(0)
 
-            command = ["utils/keys_not_present.py", "--key-file", key_file.name, "--text-file", text_file.name]
+            command = ["src/utils/keys_not_present.py", "--key-file", key_file.name, "--text-file", text_file.name]
 
             result = subprocess.run(command, capture_output=True, text=True)
 

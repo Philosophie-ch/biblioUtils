@@ -1,4 +1,4 @@
-from utils import title_case
+from src.utils import title_case
 
 
 def test_dummy_titles() -> None:
