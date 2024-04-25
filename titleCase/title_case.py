@@ -9,7 +9,10 @@ def title_casing(title: str) -> str:
     Convert a string to title case. Forces the `titlecase` method by converting the string to lowercase first.
     """
     lower_title = title.lower()
-    return titlecase(lower_title)
+    out = titlecase(lower_title)
+    out_str = str(out)
+
+    return out_str
 
 
 def main(title_list: Iterable[str]) -> Generator[str, None, None]:
