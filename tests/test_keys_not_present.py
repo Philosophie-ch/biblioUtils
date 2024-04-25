@@ -4,7 +4,7 @@ from occurenceCount import keys_not_present
 import tempfile
 
 
-def test_key_count_no_keys() -> None:
+def test_no_keys() -> None:
 
     key_list = ['phil-perspectives:1997', 'vanderveken_d:2005', 'ajdukiewicz:1978']
 
@@ -16,17 +16,27 @@ def test_key_count_no_keys() -> None:
     assert output.sort() == key_list.sort()
 
 
-def test_key_count_some_keys() ->  None:
+def test_some_keys() ->  None:
     
     key_list = ['phil-perspectives:1997', 'vanderveken_d:2005', 'ajdukiewicz:1978']
 
     text = 'This is a text that contains some of the keys in the key list:\nphil-perspectives:1997\nand ajdukiewicz:1978 is wrapped in some text'
 
-
     output_generator = keys_not_present.main(key_list, text)
     output = list(output_generator)
 
     assert output == ['vanderveken_d:2005']
+
+def test_duplicate_keys() -> None:
+
+    key_list = ['phil-perspectives:1997', 'vanderveken_d:2005', 'ajdukiewicz:1978', 'phil-perspectives:1997', 'vanderveken_d:2005', 'ajdukiewicz:1978'] 
+
+    text = 'This is a text that contains some of the keys in the key list:\nphil-perspectives:1997\nand ajdukiewicz:1978 is wrapped in some text'
+
+    output_generator = keys_not_present.main(key_list, text)
+    output = list(output_generator)
+    assert output == ['vanderveken_d:2005']
+
 
 
 def test_cli() -> None:
