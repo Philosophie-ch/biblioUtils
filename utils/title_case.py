@@ -40,10 +40,13 @@ def cli() -> None:
 
     parser = argparse.ArgumentParser(description="Convert a list of strings to title case.")
 
-    parser.add_argument("--file", type=argparse.FileType("r"), help="File containing a list of strings to convert to title case. Each line of the file must be a string that we want to titlecase.")
+    parser.add_argument(
+        "--file",
+        type=argparse.FileType("r"),
+        help="File containing a list of strings to convert to title case. Each line of the file must be a string that we want to titlecase.",
+    )
 
     titles_raw: Iterable[str] = parser.parse_args().file
-
 
     # Main
     titles = main(titles_raw)

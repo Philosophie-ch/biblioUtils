@@ -38,18 +38,18 @@ def cli() -> None:
 
     import argparse
 
-    parser = argparse.ArgumentParser(description='Count the number of times a key appears in a text')
-    parser.add_argument('--key-file', type=str, help='The file containing the keys to search for')
-    parser.add_argument('--text-file', type=str, help='The file containing the text to search')
+    parser = argparse.ArgumentParser(description="Count the number of times a key appears in a text")
+    parser.add_argument("--key-file", type=str, help="The file containing the keys to search for")
+    parser.add_argument("--text-file", type=str, help="The file containing the text to search")
 
     args = parser.parse_args()
 
-    with open(args.key_file, 'r') as f:
+    with open(args.key_file, "r") as f:
         keys = f.readlines()
 
     keys = [key.strip() for key in keys]
 
-    with open(args.text_file, 'r') as f:
+    with open(args.text_file, "r") as f:
         text = f.read()
 
     output = main(keys, text)
@@ -57,5 +57,5 @@ def cli() -> None:
     print(cli_presenter(output))
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     cli()
