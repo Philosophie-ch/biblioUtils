@@ -5,8 +5,8 @@
 It is recommended that you create a virtual environment to install the dependencies.
 
 ```bash
-python3 -m venv .venv_dev
-source .venv_dev/bin/activate
+python3 -m venv .venv
+source .venv/bin/activate
 pip install .[dev]
 ```
 
