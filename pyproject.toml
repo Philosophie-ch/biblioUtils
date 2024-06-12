@@ -21,6 +21,7 @@ maintainers = [
 dependencies = [
   "titlecase>=2.4,<3.0",
   "pydantic>=2.7,<3.0",
+  "requests", 
 ]
 
 [project.optional-dependencies]
