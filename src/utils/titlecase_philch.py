@@ -3,7 +3,7 @@
 from typing import Generator, Iterable
 from titlecase import titlecase
 
-from src.utils.titlecase_constants import ALWAYS_SMALL
+from titlecase_constants import ALWAYS_SMALL
 
 
 def _upper_first(str_in: str) -> str:
@@ -34,6 +34,10 @@ def _force_small(str_in: str, lower_caps_list: Iterable[str] = ALWAYS_SMALL) -> 
             brackets = "[]{}()"
             opening_b, closing_b = False, False
             word = ""
+
+            if len(word_raw) == 0:
+                result.append(word_raw)
+                continue
 
             if word_raw[0] in brackets:
                 word = word_raw[1:]
@@ -235,8 +239,9 @@ def cli() -> None:
     parser = argparse.ArgumentParser(description="Convert a list of strings to title case.")
 
     parser.add_argument(
-        "--file",
+        "-f", "--file",
         type=argparse.FileType("r"),
+        required=True,
         help="File containing a list of strings to convert to title case. Each line of the file must be a string that we want to titlecase.",
     )
 
