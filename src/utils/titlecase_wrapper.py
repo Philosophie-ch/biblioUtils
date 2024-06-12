@@ -4,7 +4,7 @@ from typing import Generator, Iterable
 from titlecase import titlecase
 
 
-def title_casing(title: str) -> str:
+def titlecase_wrapper(title: str) -> str:
     """
     Convert a string to title case. Forces the `titlecase` method by converting the string to lowercase first.
     """
@@ -14,14 +14,12 @@ def title_casing(title: str) -> str:
 
     return out_str
 
-
 def main(title_list: Iterable[str]) -> Generator[str, None, None]:
     """
     Loop over the main functionality. Returns a generator of title cased strings, as it's more memory-efficient than returning a list.
     """
 
-    output = (title_casing(title) for title in title_list)
-
+    output = (titlecase_wrapper(title) for title in title_list)
     return output
 
 

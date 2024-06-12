@@ -1,4 +1,4 @@
-from src.utils import title_case
+from src.utils import titlecase_wrapper
 
 
 def test_dummy_titles() -> None:
@@ -6,7 +6,10 @@ def test_dummy_titles() -> None:
     raw_titles = ["tiTle One", "TiTle tWo", "Title Three"]
     clean_titles = ["Title One", "Title Two", "Title Three"]
 
-    output_generator = title_case.main(raw_titles)
+    output_generator = titlecase_wrapper.main(raw_titles)
     output = list(output_generator)
 
     assert output == clean_titles
+
+
+
