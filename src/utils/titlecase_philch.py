@@ -3,7 +3,7 @@
 from typing import Generator, Iterable
 from titlecase import titlecase
 
-from titlecase_constants import ALWAYS_SMALL
+from src.utils.titlecase_constants import ALWAYS_SMALL
 
 
 def _upper_first(str_in: str) -> str:
@@ -28,7 +28,7 @@ def _force_small(str_in: str, lower_caps_list: Iterable[str] = ALWAYS_SMALL) -> 
 
     if " " in str_in:
         str_in_list = str_in.split(" ")
-        result = [str_in_list[0]]
+        result_list = [str_in_list[0]]
 
         for word_raw in str_in_list[1:]:
             brackets = "[]{}()"
@@ -36,7 +36,7 @@ def _force_small(str_in: str, lower_caps_list: Iterable[str] = ALWAYS_SMALL) -> 
             word = ""
 
             if len(word_raw) == 0:
-                result.append(word_raw)
+                result_list.append(word_raw)
                 continue
 
             if word_raw[0] in brackets:
@@ -59,12 +59,12 @@ def _force_small(str_in: str, lower_caps_list: Iterable[str] = ALWAYS_SMALL) -> 
                 if closing_b:
                     word_processed = f"{word}{word_raw[-1]}"
 
-                result.append(word_processed)
+                result_list.append(word_processed)
 
             else:
-                result.append(word_raw)
+                result_list.append(word_raw)
 
-        result = " ".join(result)
+        result = " ".join(result_list)
 
     else:
         result = str_in
@@ -89,6 +89,7 @@ def _preserve_already_capitalized(original_str: str, str_in: str) -> str:
 
     return result
 
+
 def _preserve_latex_commands(original_str: str, str_in: str) -> str:
     """
     Preserves capitalization of LaTeX commands
@@ -96,7 +97,7 @@ def _preserve_latex_commands(original_str: str, str_in: str) -> str:
     if len(str_in) > 1:
 
         result = ""
-        backslash = r'\ '[0]
+        backslash = r"\ "[0]
         preserve_next = False
 
         for original_char, new_char in zip(original_str, str_in):
@@ -122,6 +123,7 @@ def _preserve_latex_commands(original_str: str, str_in: str) -> str:
 
     return result
 
+
 def _preserve_bibkeys(original_str: str, str_in: str) -> str:
     """
     Preserves capitalization of bibkeys
@@ -143,8 +145,9 @@ def _preserve_bibkeys(original_str: str, str_in: str) -> str:
                 result_list.append(new_word)
 
         result = " ".join(result_list)
-    
+
     return result
+
 
 def _capitalize_subtitles_first_word(title_in: str) -> str:
     """
@@ -161,55 +164,41 @@ def _capitalize_subtitles_first_word(title_in: str) -> str:
         if m in title_in:
             split_title = title_in.split(m)
             title = split_title[0]
-            subtitle = split_title[1:]
+            subtitle_list = split_title[1:]
 
-            if len(subtitle) > 1:
-                subtitle = m.join(subtitle)
+            if len(subtitle_list) > 1:
+                subtitle = m.join(subtitle_list)
                 subtitle = _upper_first(subtitle)
                 result = f"{title}{m}{subtitle}"
 
-            elif len(subtitle) == 1:
-                subtitle = _upper_first(subtitle[0])
+            elif len(subtitle_list) == 1:
+                subtitle = _upper_first(subtitle_list[0])
                 result = f"{title}{m}{subtitle}"
-            
+
             else:
                 result = title
-            
+
             break
 
     return result
 
+
 def titlecase_philch(title: str) -> str:
     """
-    Convert a string to title case. 
+    Convert a string to title case.
     """
 
     original_title = title
 
     lower_title = title.lower()
 
-    result_pristined = _capitalize_subtitles_first_word(
-            _force_small(
-                _upper_first(
-                    titlecase(
-                        lower_title
-    ))))
+    result_pristined = _capitalize_subtitles_first_word(_force_small(_upper_first(titlecase(lower_title))))
 
+    result_preserved_caps = _preserve_already_capitalized(original_title, result_pristined)
 
-    result_preserved_caps = _preserve_already_capitalized(
-                original_title,
-                result_pristined
-    )
+    result_preserved_latex = _preserve_latex_commands(original_title, result_preserved_caps)
 
-    result_preserved_latex = _preserve_latex_commands(
-                original_title,
-                result_preserved_caps
-    )
-
-    result_preserved_bibkeys = _preserve_bibkeys(
-                original_title,
-                result_preserved_latex
-    )
+    result_preserved_bibkeys = _preserve_bibkeys(original_title, result_preserved_latex)
 
     return result_preserved_bibkeys
 
@@ -239,7 +228,8 @@ def cli() -> None:
     parser = argparse.ArgumentParser(description="Convert a list of strings to title case.")
 
     parser.add_argument(
-        "-f", "--file",
+        "-f",
+        "--file",
         type=argparse.FileType("r"),
         required=True,
         help="File containing a list of strings to convert to title case. Each line of the file must be a string that we want to titlecase.",

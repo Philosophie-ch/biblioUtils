@@ -10,6 +10,3 @@ def test_dummy_titles() -> None:
     output = list(output_generator)
 
     assert output == clean_titles
-
-
-

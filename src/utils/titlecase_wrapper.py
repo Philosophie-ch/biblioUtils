@@ -14,6 +14,7 @@ def titlecase_wrapper(title: str) -> str:
 
     return out_str
 
+
 def main(title_list: Iterable[str]) -> Generator[str, None, None]:
     """
     Loop over the main functionality. Returns a generator of title cased strings, as it's more memory-efficient than returning a list.

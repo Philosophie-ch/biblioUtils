@@ -28,6 +28,7 @@ def test_preserve_already_capitalized() -> None:
 
     assert output == original_str
 
+
 def test_preserve_latex_commands() -> None:
 
     original_str = r"test \cited{bibkey}"
@@ -72,7 +73,7 @@ BENCHMARKS = {
     r"Value-acquiring (\emph{Wertnehmung}) and meaning-bestowal (\emph{Sinnzueignung})": r"Value-Acquiring (\emph{Wertnehmung}) and Meaning-Bestowal (\emph{Sinnzueignung})",
     r"How can my mind move my limbs? Mental causation from Descartes to contemporary physicalism": r"How Can My Mind Move My Limbs? Mental Causation from Descartes to Contemporary Physicalism",
 }
-    
+
 
 def test_dummy_titles() -> None:
 
@@ -83,6 +84,7 @@ def test_dummy_titles() -> None:
     output = list(output_generator)
 
     assert output == clean_titles
+
 
 def test_ad_hoc_single_benchmark() -> None:
 
@@ -95,13 +97,14 @@ def test_ad_hoc_single_benchmark() -> None:
     assert output == expected
 
 
-
 def test_benchmarks() -> None:
 
     output = list(titlecase_philch.main(list(BENCHMARKS.keys())))
 
     errors = [
         (i, expected, actual)
-          for i, (expected, actual) in enumerate(zip(list(BENCHMARKS.values()), output)) if expected != actual]
+        for i, (expected, actual) in enumerate(zip(list(BENCHMARKS.values()), output))
+        if expected != actual
+    ]
 
     assert not errors, f"{len(errors)} errors found: {errors}"
