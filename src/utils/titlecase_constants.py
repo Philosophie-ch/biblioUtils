@@ -120,6 +120,10 @@ FRENCH_PREPOSITIONS: List[str] = [
 
 FRENCH_COORDINATING_CONJUNCTIONS: List[str] = ["et", "ou", "mais", "donc", "or", "ni", "car"]
 
+FRENCH_EXPRESSIONS: List[str] = [
+    "vis-à-vis",
+]
+
 """
 # GERMAN
 """
@@ -134,6 +138,21 @@ GERMAN_ARTICLES: List[str] = [
     "einem",
     "einen",
 ]
+
+"""
+# LATIN
+"""
+
+LATIN_PHRASES: List[str] = [
+    "a priori",
+    "a posteriori",
+    "de re",
+    "de dicto",
+    "versus",
+    "vs.",
+    "v.",
+]
+
 
 """
 # CONSTANTS
@@ -154,6 +173,7 @@ FIXED_SMALL: List[str] = [
     "c.",
 ]
 
+
 ALWAYS_SMALL: List[str] = (
     FIXED_SMALL
     + ENGLISH_ARTICLES
@@ -162,5 +182,7 @@ ALWAYS_SMALL: List[str] = (
     + FRENCH_ARTICLES
     + FRENCH_PREPOSITIONS
     + FRENCH_COORDINATING_CONJUNCTIONS
+    + FRENCH_EXPRESSIONS
     + GERMAN_ARTICLES
+    + LATIN_PHRASES
 )

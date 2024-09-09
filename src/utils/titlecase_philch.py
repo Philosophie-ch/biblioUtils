@@ -225,7 +225,9 @@ def cli() -> None:
     # CLI inputs
     import argparse
 
-    parser = argparse.ArgumentParser(description="Convert a list of strings to title case. Requires a file with one string per line. Outputs one title per line, directly to the standard output.")
+    parser = argparse.ArgumentParser(
+        description="Convert a list of strings to title case. Requires a file with one string per line. Outputs one title per line, directly to the standard output."
+    )
 
     parser.add_argument(
         "-f",
