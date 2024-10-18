@@ -12,14 +12,6 @@ import re
 
 
 LATEX_TO_UNICODE_MAP = {
-
-    r"{\"a}": "ä",
-    r"{\"A}": "Ä",
-    r"{\"o}": "ö",
-    r"{\"O}": "Ö",
-    r"{\"u}": "ü",
-    r"{\"U}": "Ü",
-
     r"{\'e}": "é",
     r"{\'E}": "É",
     r"{\'a}": "á",
@@ -37,7 +29,6 @@ LATEX_TO_UNICODE_MAP = {
     r"{\'S}": "Ś",
     r"{\'I}": "Í",
     r"{\'r}": "ŕ",
-
     r"{\`e}": "è",
     r"{\`E}": "È",
     r"{\`a}": "à",
@@ -45,7 +36,6 @@ LATEX_TO_UNICODE_MAP = {
     r"{\`u}": "ù",
     r"{\`{\i}}": "ì",
     r"{\`o}": "ò",
-
     r"{\^A}": "Â",
     r"{\^o}": "ô",
     r"{\{o}}": "ô",
@@ -60,25 +50,20 @@ LATEX_TO_UNICODE_MAP = {
     r"{\^S}": "Ŝ",
     r"{\^Z}": "Ž",
     r"{\^g}": "ĝ",
-
     r"{\"e}": "ë",
     r"{\"{\i}}": "ï",
-
     r"{\c{c}}": "ç",
     r"{\c{C}}": "Ç",
     r"{\c{e}}": "ȩ",
     r"{\c{S}}": "Ş",
     r"{\c{s}}": "ş",
-
     r"{\k{e}}": "ę",
     r"{\k{a}}": "ą",
-
     r"{\l}": "ł",
     r"{\L}": "Ł",
     r"{\o}": "ø",
     r"{\O}": "Ø",
     r"{\dj}": "đ",
-
     r"{\={e}}": "ē",
     r"{\={E}}": "Ē",
     r"{\={A}}": "Ā",
@@ -91,7 +76,6 @@ LATEX_TO_UNICODE_MAP = {
     r"{\={O}}": "Ō",
     r"{\={u}}": "ū",
     r"{\={U}}": "Ū",
-
     r"{\d{a}}": "ạ",
     r"{\d{d}}": "ḍ",
     r"{\d{h}}": "ḥ",
@@ -104,19 +88,15 @@ LATEX_TO_UNICODE_MAP = {
     r"{\d{T}}": "Ṭ",
     r"{\d{r}}": "ṛ",
     r"{\d{z}}": "ẓ",
-
     r"{\.{a}}": "ȧ",
     r"{\.{e}}": "ė",
     r"{\.{G}}": "Ġ",
     r"{\.{z}}": "ż",
     r"{\.Z}": "Ż",
     r"{\.{Z}}": "Ż",
-
     r"{\aa}": "å",
     r"{\AA}": "Å",
-
     r"{\u{e}}": "ĕ",
-
     r"{\v{a}}": "ǎ",
     r"{\v{e}}": "ě",
     r"{\v{s}}": "š",
@@ -130,7 +110,6 @@ LATEX_TO_UNICODE_MAP = {
     r"{\v{g}}": "ǧ",
     r"{\v{n}}": "ň",
     r"{\~n}": "ñ",
-
     r"{\.I}": "İ",
     r"{\AA}": "Å",
     r"{\^i}": "î",
@@ -141,28 +120,35 @@ LATEX_TO_UNICODE_MAP = {
     r"{\={O}}": "Ō",
     r"{\c{S}}": "Ş",
     r"{\c{s}}": "ş",
-    r"{\"y}": "ÿ",
-    r"{\"i}": "ï",
+
+    r'{\"a}': "ä",
+    r'{\"A}': "Ä",
+    r'{\"e}': "ë",
+    r'{\"E}': "Ë",
+    r'{\"i}': "ï",
+    r'{\"I}': "Ï",
+    r'{\"o}': "ö",
+    r'{\"O}': "Ö",
+    r'{\"u}': "ü",
+    r'{\"U}': "Ü",
+    r'{\"y}': "ÿ",
+    r'{\"Y}': "Ÿ",
+
     r"{\'r}": "ŕ",
     r"{\c{n}}": "ņ",
-
     r"{\i}": "ı",
-
     r"{\ae}": "æ",
     r"{\AE}": "Æ",
     r"{\oe}": "œ",
     r"{\OE}": "Œ",
-
     r"{\~n}": "ñ",
     r"{\~a}": "ã",
     r"{\~u}": "ũ",
     r"{\~o}": "õ",
-
     r"\&": "&",
     r"~": "   ",
     r"\dots": "…",
     r"\S": "§",
-
     r"$\Delta$": "Δ",
     r"$\Theta$": "Τ",
     r"$\Gamma$": "Γ",
@@ -179,13 +165,11 @@ LATEX_TO_UNICODE_MAP = {
     r"$\infty$": "∞",
     r"$_{\infty}$": "_∞",
     r"$^{\infty}$": "^∞",
-
     r"$S$": "𝑆",
     r"$P$": "𝑃",
     r"$T$": "𝑇",
     r"$a$": "𝑎",
     r"$p$": "𝒑",
-
     # Order matters!
     r"{": "",
     r"}": "",
@@ -207,6 +191,17 @@ CLEANUP_MAP = {
     r"CITET": "citet",
     r"Citep": "citep",
     r"CITEP": "citep",
+
+    r'\""u': "ü",  # in case csv delimiter is " itself
+    r'\""o': "ö",  # in case csv delimiter is " itself
+    r'\""a': "ä",  # in case csv delimiter is " itself
+    r'\""e': "ë",  # in case csv delimiter is " itself
+    r'\""i': "ï",  # in case csv delimiter is " itself
+    r'\""U': "Ü",  # in case csv delimiter is " itself
+    r'\""O': "Ö",  # in case csv delimiter is " itself
+    r'\""A': "Ä",  # in case csv delimiter is " itself
+    r'\""E': "Ë",  # in case csv delimiter is " itself
+    r'\""I': "Ï",  # in case csv delimiter is " itself
 }
 
 
@@ -233,11 +228,13 @@ def cli() -> None:
     import argparse
 
     parser = argparse.ArgumentParser(description="Replace LaTeX special characters with their Unicode equivalents.")
-    parser.add_argument("file", type=str, help="File containing LaTeX special characters to convert to Unicode.")
+    parser.add_argument("-f", "--file", type=str, help="File containing LaTeX special characters to convert to Unicode.")
+    parser.add_argument("-e", "--encoding", type=str, help="Encoding of the file. 'utf-8' by default.", default="utf-8")
 
     file = parser.parse_args().file
+    encoding = parser.parse_args().encoding
 
-    with open(file, "r") as f:
+    with open(file, "r", encoding=encoding) as f:
         text = f.read()
         lines = text.splitlines()
         processed_lines = [tex2utc(line) for line in lines]
@@ -248,3 +245,4 @@ def cli() -> None:
 
 if __name__ == "__main__":
     cli()
+
