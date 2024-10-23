@@ -3,10 +3,14 @@ import logging
 from os import getenv
 from fuzzywuzzy import fuzz
 
+from src.sdk.types import Err
+
 
 def get_logger(name: str) -> logging.Logger:
     """
-    Returns a logger object.
+    Returns a logger object. Pass the name of the logger as an argument.
+
+    You can also pass the environment variables 'LOGGING_LEVEL' or 'LOG_LEVEL' to set the logging level. If none is passed, the default is 'INFO'.
     """
 
     if name is None or not isinstance(name, str):
@@ -75,3 +79,20 @@ def fuzzy_match_score(
         )
 
     return score
+
+
+def handle_error(msg: str, logger: logging.Logger, code: int) -> Err:
+    """
+    Handle errors. This function returns an Err object with the message and code.
+    """
+    logger.error(msg)
+    return Err(message=msg, code=code)
+
+
+def handle_unexpected_exception(msg: str, logger: logging.Logger, code: int = -1) -> Err:
+    """
+    Handle unexpected exceptions. This function logs the message and returns an Err object with the message and code.
+    """
+
+    message = f"Unexpected exception!\n{msg}"
+    return handle_error(message, logger, code)

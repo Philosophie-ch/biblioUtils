@@ -1,8 +1,8 @@
 import tempfile
 import os
 
-from src.utils import gen_md_bibentries as mdbib
-from src.sdk.return_types import Ok
+from src.ref_pipe import gen_md as mdbib
+from src.sdk.types import Ok
 
 
 TEST_PROFILES_CSV = """id,lastname,_biblio_keys,_biblio_keys_dependencies
@@ -65,10 +65,16 @@ def test_prepare_md() -> None:
 
     profile = mdbib.Profile(id="1", lastname="Doe", biblio_keys="key1,key2,key23", biblio_keys_dependencies=None)
 
-    output = mdbib.prepare_md(profile)
+    temp_folder = tempfile.mkdtemp()
 
-    assert isinstance(output, Ok)
-    assert output.out == TEST_DESIRED_MD_ONE
+    try:
+        output = mdbib.prepare_md(profile, temp_folder)
+
+        assert isinstance(output, Ok)
+        assert output.out.content == TEST_DESIRED_MD_ONE
+
+    finally:
+        os.rmdir(temp_folder)
 
 
 def test_load_csv_and_prepare_md_pipe() -> None:
@@ -78,6 +84,8 @@ def test_load_csv_and_prepare_md_pipe() -> None:
         temp_file_name = f.name
 
     try:
+        temp_folder = tempfile.mkdtemp()
+
         step_one_output = mdbib.load_profiles_csv(temp_file_name, "utf-8")
 
         assert isinstance(step_one_output, Ok)
@@ -86,15 +94,16 @@ def test_load_csv_and_prepare_md_pipe() -> None:
 
         for profile in profiles:
 
-            step_two_output = mdbib.prepare_md(profile)
+            step_two_output = mdbib.prepare_md(profile, temp_folder)
 
             assert isinstance(step_two_output, Ok)
 
             if profile.lastname == "Doe":
-                assert step_two_output.out == TEST_DESIRED_MD_ONE
+                assert step_two_output.out.content == TEST_DESIRED_MD_ONE
             elif profile.lastname == "Smith":
-                assert step_two_output.out == TEST_DESIRED_MD_TWO
+                assert step_two_output.out.content == TEST_DESIRED_MD_TWO
 
     # clean up
     finally:
         os.unlink(f.name)
+        os.rmdir(temp_folder)

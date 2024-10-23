@@ -120,20 +120,18 @@ LATEX_TO_UNICODE_MAP = {
     r"{\={O}}": "Ō",
     r"{\c{S}}": "Ş",
     r"{\c{s}}": "ş",
-
-    r'{\"a}': "ä",
-    r'{\"A}': "Ä",
-    r'{\"e}': "ë",
-    r'{\"E}': "Ë",
-    r'{\"i}': "ï",
-    r'{\"I}': "Ï",
-    r'{\"o}': "ö",
-    r'{\"O}': "Ö",
-    r'{\"u}': "ü",
-    r'{\"U}': "Ü",
-    r'{\"y}': "ÿ",
-    r'{\"Y}': "Ÿ",
-
+    r"{\"a}": "ä",
+    r"{\"A}": "Ä",
+    r"{\"e}": "ë",
+    r"{\"E}": "Ë",
+    r"{\"i}": "ï",
+    r"{\"I}": "Ï",
+    r"{\"o}": "ö",
+    r"{\"O}": "Ö",
+    r"{\"u}": "ü",
+    r"{\"U}": "Ü",
+    r"{\"y}": "ÿ",
+    r"{\"Y}": "Ÿ",
     r"{\'r}": "ŕ",
     r"{\c{n}}": "ņ",
     r"{\i}": "ı",
@@ -191,7 +189,6 @@ CLEANUP_MAP = {
     r"CITET": "citet",
     r"Citep": "citep",
     r"CITEP": "citep",
-
     r'\""u': "ü",  # in case csv delimiter is " itself
     r'\""o': "ö",  # in case csv delimiter is " itself
     r'\""a': "ä",  # in case csv delimiter is " itself
@@ -228,7 +225,9 @@ def cli() -> None:
     import argparse
 
     parser = argparse.ArgumentParser(description="Replace LaTeX special characters with their Unicode equivalents.")
-    parser.add_argument("-f", "--file", type=str, help="File containing LaTeX special characters to convert to Unicode.")
+    parser.add_argument(
+        "-f", "--file", type=str, help="File containing LaTeX special characters to convert to Unicode."
+    )
     parser.add_argument("-e", "--encoding", type=str, help="Encoding of the file. 'utf-8' by default.", default="utf-8")
 
     file = parser.parse_args().file
@@ -245,4 +244,3 @@ def cli() -> None:
 
 if __name__ == "__main__":
     cli()
-
