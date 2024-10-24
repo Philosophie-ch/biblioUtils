@@ -1,7 +1,7 @@
 import os
 from typing import Callable
 from src.sdk.utils import remove_extra_whitespace
-from src.sdk.types import Ok, Err
+from src.sdk.ResultMonad import Ok, Err
 
 
 def file_in(file_path: str) -> Ok[list[str]] | Err:

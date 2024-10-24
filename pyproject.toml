@@ -23,7 +23,8 @@ dependencies = [
   "pydantic>=2.7,<3.0",
   "requests", 
   "fuzzywuzzy",
-  "python-Levenshtein"
+  "python-Levenshtein",
+  "python-dotenv",
 ]
 
 [project.optional-dependencies]

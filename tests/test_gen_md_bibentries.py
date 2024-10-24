@@ -2,7 +2,8 @@ import tempfile
 import os
 
 from src.ref_pipe import gen_md as mdbib
-from src.sdk.types import Ok
+from src.ref_pipe.models import Profile, ProfileWithMD
+from src.sdk.ResultMonad import Ok
 
 
 TEST_PROFILES_CSV = """id,lastname,_biblio_keys,_biblio_keys_dependencies
@@ -50,7 +51,7 @@ def test_load_profiles_csv() -> None:
 
         assert isinstance(output, Ok)
         for profile in output.out:
-            assert isinstance(profile, mdbib.Profile)
+            assert isinstance(profile, Profile)
             assert profile.id in ["1", "2"]
             assert profile.lastname in ["Doe", "Smith"]
             assert profile.biblio_keys in "key1,key2,key23" or profile.biblio_keys in "key4,key5,key6"
@@ -63,7 +64,7 @@ def test_load_profiles_csv() -> None:
 
 def test_prepare_md() -> None:
 
-    profile = mdbib.Profile(id="1", lastname="Doe", biblio_keys="key1,key2,key23", biblio_keys_dependencies=None)
+    profile = Profile(id="1", lastname="Doe", biblio_keys="key1,key2,key23", biblio_keys_dependencies=None)
 
     temp_folder = tempfile.mkdtemp()
 
@@ -71,7 +72,8 @@ def test_prepare_md() -> None:
         output = mdbib.prepare_md(profile, temp_folder)
 
         assert isinstance(output, Ok)
-        assert output.out.content == TEST_DESIRED_MD_ONE
+        assert output.out.markdown is not None
+        assert output.out.markdown.main_file.content == TEST_DESIRED_MD_ONE
 
     finally:
         os.rmdir(temp_folder)
@@ -99,9 +101,11 @@ def test_load_csv_and_prepare_md_pipe() -> None:
             assert isinstance(step_two_output, Ok)
 
             if profile.lastname == "Doe":
-                assert step_two_output.out.content == TEST_DESIRED_MD_ONE
+                assert step_two_output.out.markdown is not None
+                assert step_two_output.out.markdown.main_file.content == TEST_DESIRED_MD_ONE
             elif profile.lastname == "Smith":
-                assert step_two_output.out.content == TEST_DESIRED_MD_TWO
+                assert step_two_output.out.markdown is not None
+                assert step_two_output.out.markdown.main_file.content == TEST_DESIRED_MD_TWO
 
     # clean up
     finally:

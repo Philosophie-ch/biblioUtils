@@ -1,0 +1,19 @@
+services:
+  dltc-env:
+    image: philosophiech/dltc-env:latest-${ARCH}
+    user: "1000:1000"
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+    container_name: dltc-env
+    tty: true
+    stdin_open: true
+    hostname: dltc-env
+    volumes:
+      - "${DLTC_WORKHOUSE_DIRECTORY}:/home/copyeditor/dltc-workhouse"
+      - "${REF_PIPE_DIRECTORY}:/home/copyeditor/ref-pipe"
+      - "${HOME}/.ssh:/home/copyeditor/.ssh"
+      - "${HOME}/.gitconfig:/home/copyeditor/.gitconfig"
+      - "${HOME}/.config:/home/copyeditor/.config"
+    working_dir: /home/copyeditor/dltc-workhouse
+    command: ["LaunchScript", "start"]

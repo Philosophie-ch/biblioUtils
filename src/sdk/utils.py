@@ -3,7 +3,7 @@ import logging
 from os import getenv
 from fuzzywuzzy import fuzz
 
-from src.sdk.types import Err
+from src.sdk.ResultMonad import Err
 
 
 def get_logger(name: str) -> logging.Logger:
@@ -81,18 +81,26 @@ def fuzzy_match_score(
     return score
 
 
-def handle_error(msg: str, logger: logging.Logger, code: int) -> Err:
+def lginf(frame: str, msg: str, logger: logging.Logger) -> None:
+    """
+    Log an info message.
+    """
+    logger.info(f"{frame}\n\t{msg}")
+
+
+def handle_error(frame: str, msg: str, logger: logging.Logger, code: int) -> Err:
     """
     Handle errors. This function returns an Err object with the message and code.
     """
-    logger.error(msg)
-    return Err(message=msg, code=code)
+    message = f"{frame}\n\t{msg}"
+    logger.error(message)
+    return Err(message=message, code=code)
 
 
 def handle_unexpected_exception(msg: str, logger: logging.Logger, code: int = -1) -> Err:
     """
     Handle unexpected exceptions. This function logs the message and returns an Err object with the message and code.
     """
-
     message = f"Unexpected exception!\n{msg}"
-    return handle_error(message, logger, code)
+    logger.error(message)
+    return Err(message=message, code=code)
