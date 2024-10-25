@@ -1,5 +1,7 @@
-from typing import Callable, Generic, TypeVar
+from logging import Logger
+from typing import Any, Callable, Generic, TypeVar
 from pydantic import BaseModel, ConfigDict
+from functools import wraps
 
 T = TypeVar("T")
 U = TypeVar("U")
@@ -144,3 +146,30 @@ def runwrap_or(result: Ok[T] | Err, default: T) -> T:
             return data
         case Err(message=msg, code=code):
             return default
+
+
+def try_except_wrapper(logger: Logger) -> Callable[[Callable[..., T]], Callable[..., Ok[T] | Err]]:
+    def decorator(func: Callable[..., T]) -> Callable[..., Ok[T] | Err]:
+        @wraps(func)
+        def wrapper(*args: Any, **kwargs: Any) -> Ok[T] | Err:
+            try:
+                result = func(*args, **kwargs)
+
+                match result:
+                    case Ok(out=data):
+                        return Ok(out=data)
+                    case Err(message=msg, code=code):
+                        return Err(message=msg, code=code)
+                    case _:
+                        return Ok(out=result)
+
+            except Exception as e:
+                error_message = (
+                    f"An error occurred in function '{func.__name__}' with arguments '{args}, {kwargs}':\n\t{e}"
+                )
+                logger.error(error_message)
+                return Err(message=error_message, code=-1)
+
+        return wrapper
+
+    return decorator

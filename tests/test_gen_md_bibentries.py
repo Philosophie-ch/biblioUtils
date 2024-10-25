@@ -6,9 +6,9 @@ from src.ref_pipe.models import Profile, ProfileWithMD
 from src.sdk.ResultMonad import Ok
 
 
-TEST_PROFILES_CSV = """id,lastname,_biblio_keys,_biblio_keys_dependencies
-1,Doe,"key1,key2,key23"
-2,Smith,"key4,key5,key6"
+TEST_PROFILES_CSV = """id,lastname,_biblio_name,biblio_keys,biblio_dependencies_keys
+1,Doe,,"key1,key2,key23"
+2,Smith,,"key4,key5,key6"
 """
 
 TEST_DESIRED_MD_ONE = """---
@@ -55,7 +55,7 @@ def test_load_profiles_csv() -> None:
             assert profile.id in ["1", "2"]
             assert profile.lastname in ["Doe", "Smith"]
             assert profile.biblio_keys in "key1,key2,key23" or profile.biblio_keys in "key4,key5,key6"
-            assert profile.biblio_keys_dependencies is None
+            assert profile.biblio_dependencies_keys is None
 
     # clean up
     finally:
@@ -64,7 +64,9 @@ def test_load_profiles_csv() -> None:
 
 def test_prepare_md() -> None:
 
-    profile = Profile(id="1", lastname="Doe", biblio_keys="key1,key2,key23", biblio_keys_dependencies=None)
+    profile = Profile(
+        id="1", lastname="Doe", biblio_name="", biblio_keys="key1,key2,key23", biblio_dependencies_keys=None
+    )
 
     temp_folder = tempfile.mkdtemp()
 

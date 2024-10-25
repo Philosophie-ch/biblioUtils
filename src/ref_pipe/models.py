@@ -20,8 +20,9 @@ class EnvVars:
 class Profile:
     id: str
     lastname: str
+    biblio_name: str
     biblio_keys: str
-    biblio_keys_dependencies: str | None
+    biblio_dependencies_keys: str | None
 
 
 @dataclass
