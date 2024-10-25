@@ -25,6 +25,7 @@ dependencies = [
   "fuzzywuzzy",
   "python-Levenshtein",
   "python-dotenv",
+  "jupyter",
 ]
 
 [project.optional-dependencies]
@@ -32,6 +33,7 @@ dev = [
     "pytest>=8.1,<9.0",
     "mypy>=1.10,<2.0",
     "black>=24.4,<25.0",
+    "black[jupyter]",
 ]
 
 [tool.mypy]
@@ -57,6 +59,7 @@ pythonpath = ["."]
 line-length = 120
 target-version = ['py311']
 include = '\.pyi?$'
+skip-string-normalization = true
 # 'extend-exclude' excludes files or directories in addition to the defaults
 extend-exclude = '''
 # A regex preceded with ^/ will apply only to files and directories
