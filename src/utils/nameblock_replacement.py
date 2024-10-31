@@ -35,15 +35,15 @@ def format_result_column(nameblock: str, not_found: str | None) -> str:
             return f"{nameblock}\t{not_found}"
 
 
-def main(input_file: str, replacement_table_file: str) -> Ok[str] | Err:
+def main(input_file: str, replacement_table_file: str, encoding: str) -> Ok[str] | Err:
     try:
         replacement_table = {}
-        with open(replacement_table_file, "r", encoding="utf-16") as f:
+        with open(replacement_table_file, "r", encoding=encoding) as f:
             reader = csv.DictReader(f)
             for row in reader:
                 replacement_table[row["REPLACE"]] = row["WITH"]
 
-        with open(input_file, "r", encoding="utf-16") as f:
+        with open(input_file, "r", encoding=encoding) as f:
             replaced_nameblocks_buffer = []
             reader = csv.DictReader(f)
             for row in reader:
@@ -85,11 +85,12 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="Replace nameblocks in a CSV file with a replacement table")
 
-    parser.add_argument("-i", "--input", type=str, help="Input CSV file", required=True)
-    parser.add_argument("-r", "--replacement-table", type=str, help="Replacement table CSV file", required=True)
+    parser.add_argument("-i", "--input", type=str, help="Input CSV file. Must have a column 'raw_nameblocks' with the nameblocks to be replaced.", required=True)
+    parser.add_argument("-r", "--replacement-table", type=str, help="Replacement table CSV file. Must have the columns 'REPLACE' and 'WITH'", required=True)
+    parser.add_argument("-e", "--encoding", type=str, help="The encoding of the CSV file.", required=True)
 
     args = parser.parse_args()
 
-    result = main(input_file=args.input, replacement_table_file=args.replacement_table)
+    result = main(input_file=args.input, replacement_table_file=args.replacement_table, encoding=args.encoding)
 
     cli_presenter(result)
