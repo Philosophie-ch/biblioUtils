@@ -1,12 +1,13 @@
 import tempfile
 import os
 
+from src.ref_pipe.utils import load_profiles_csv
 from src.ref_pipe import gen_md as mdbib
 from src.ref_pipe.models import Profile, ProfileWithMD
 from src.sdk.ResultMonad import Ok
 
 
-TEST_PROFILES_CSV = """id,lastname,_biblio_name,biblio_keys,biblio_dependencies_keys
+TEST_PROFILES_CSV = """id,lastname,_biblio_name,biblio_keys,biblio_keys_further_references,biblio_dependencies_keys
 1,Doe,,"key1,key2,key23"
 2,Smith,,"key4,key5,key6"
 """
@@ -47,15 +48,15 @@ def test_load_profiles_csv() -> None:
         temp_file_name = f.name
 
     try:
-        output = mdbib.load_profiles_csv(temp_file_name, "utf-8")
+        output = load_profiles_csv(temp_file_name, "utf-8")
 
         assert isinstance(output, Ok)
         for profile in output.out:
             assert isinstance(profile, Profile)
             assert profile.id in ["1", "2"]
             assert profile.lastname in ["Doe", "Smith"]
-            assert profile.biblio_keys in "key1,key2,key23" or profile.biblio_keys in "key4,key5,key6"
-            assert profile.biblio_dependencies_keys is None
+            assert profile.biblio_keys == ["key1", "key2", "key23"] or profile.biblio_keys == ["key4", "key5", "key6"]
+            assert profile.biblio_dependencies_keys == []
 
     # clean up
     finally:
@@ -65,7 +66,12 @@ def test_load_profiles_csv() -> None:
 def test_prepare_md() -> None:
 
     profile = Profile(
-        id="1", lastname="Doe", biblio_name="", biblio_keys="key1,key2,key23", biblio_dependencies_keys=None
+        id="1",
+        lastname="Doe",
+        biblio_name="",
+        biblio_keys=["key1", "key2", "key23"],
+        biblio_keys_further_references=[],
+        biblio_dependencies_keys=[],
     )
 
     temp_folder = tempfile.mkdtemp()
@@ -90,7 +96,7 @@ def test_load_csv_and_prepare_md_pipe() -> None:
     try:
         temp_folder = tempfile.mkdtemp()
 
-        step_one_output = mdbib.load_profiles_csv(temp_file_name, "utf-8")
+        step_one_output = load_profiles_csv(temp_file_name, "utf-8")
 
         assert isinstance(step_one_output, Ok)
 

@@ -85,8 +85,20 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="Replace nameblocks in a CSV file with a replacement table")
 
-    parser.add_argument("-i", "--input", type=str, help="Input CSV file. Must have a column 'raw_nameblocks' with the nameblocks to be replaced.", required=True)
-    parser.add_argument("-r", "--replacement-table", type=str, help="Replacement table CSV file. Must have the columns 'REPLACE' and 'WITH'", required=True)
+    parser.add_argument(
+        "-i",
+        "--input",
+        type=str,
+        help="Input CSV file. Must have a column 'raw_nameblocks' with the nameblocks to be replaced.",
+        required=True,
+    )
+    parser.add_argument(
+        "-r",
+        "--replacement-table",
+        type=str,
+        help="Replacement table CSV file. Must have the columns 'REPLACE' and 'WITH'",
+        required=True,
+    )
     parser.add_argument("-e", "--encoding", type=str, help="The encoding of the CSV file.", required=True)
 
     args = parser.parse_args()

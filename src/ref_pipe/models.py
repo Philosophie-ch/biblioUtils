@@ -1,5 +1,8 @@
 from dataclasses import dataclass
 import os
+from typing import Iterator, List, Tuple, TypeAlias, TypeVar
+
+from src.sdk.ResultMonad import Err, Ok
 
 
 @dataclass
@@ -10,6 +13,7 @@ class EnvVars:
     DOCKERHUB_USERNAME: str
     DLTC_WORKHOUSE_DIRECTORY: str
     REF_PIPE_DIRECTORY: str
+    CONTAINER_NAME: str
 
     @classmethod
     def attribute_names(self) -> str:
@@ -21,8 +25,12 @@ class Profile:
     id: str
     lastname: str
     biblio_name: str
-    biblio_keys: str
-    biblio_dependencies_keys: str | None
+    biblio_keys: List[str]
+    biblio_keys_further_references: List[str]
+    biblio_dependencies_keys: List[str]
+
+    def dump(self) -> str:
+        return f"{self.__dict__}"
 
 
 @dataclass
@@ -48,15 +56,21 @@ class ProfileWithMD(Profile):
 
 @dataclass
 class ProfileWithRawHTML(ProfileWithMD):
-    raw_html: File
+    raw_html_filename: str
 
 
 @dataclass
 class RefHTML:
-    references: File
-    dependencies: File | None = None
+    references_filename: str
+    further_references_filename: str | None = None
+    dependencies_filename: str | None = None
 
 
 @dataclass
 class ProfileWithHTML(ProfileWithRawHTML):
     html: RefHTML
+
+
+TMDReport: TypeAlias = Iterator[tuple[Profile, Ok[ProfileWithMD] | Err]]
+
+THTMLReport: TypeAlias = Iterator[tuple[Profile, Ok[ProfileWithHTML] | Err]]

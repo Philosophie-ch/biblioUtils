@@ -1,48 +1,9 @@
-import csv
 import os
-from typing import Iterator, TypeAlias
 
-from src.sdk.utils import handle_error, handle_unexpected_exception
+from src.sdk.utils import handle_error, handle_unexpected_exception, lginf
 from src.sdk.ResultMonad import Err, Ok, rbind, runwrap
-from src.ref_pipe.models import File, Profile, Markdown, ProfileWithMD
-from src.ref_pipe.utils import GMDLGR as lgr
-
-
-def load_profiles_csv(input_file: str, encoding: str) -> Ok[list[Profile]] | Err:
-
-    try:
-        frame = f"load_profiles_csv"
-        lgr.info(f"{frame}\n\tReading CSV file '{input_file}' with encoding '{encoding}'...")
-
-        if not os.path.exists(input_file):
-            return handle_error(frame, f"The input file '{input_file}' does not exist.", lgr, code=-2)
-
-        with open(input_file, "r", encoding=encoding) as f:
-            reader = csv.DictReader(f)
-
-            required_columns = ["id", "lastname", "_biblio_name", "biblio_keys", "biblio_dependencies_keys"]
-
-            if reader.fieldnames is None or not all(col in reader.fieldnames for col in required_columns):
-                msg = f"The CSV file needs to have a header row with at least the following columns:\n\t{', '.join(required_columns)}."
-                return handle_error(frame, msg, lgr, code=-3)
-
-            rows = list(reader)  # Read all rows into memory
-
-        output = [
-            Profile(
-                id=row["id"],
-                lastname=row["lastname"],
-                biblio_name=row["_biblio_name"],
-                biblio_keys=row["biblio_keys"],
-                biblio_dependencies_keys=row["biblio_dependencies_keys"],
-            )
-            for row in rows
-        ]
-
-        return Ok(out=output)
-
-    except Exception as e:
-        return handle_unexpected_exception(f"An error occurred while trying to read the CSV file:\n\t{e}", lgr)
+from src.ref_pipe.models import File, Profile, Markdown, ProfileWithMD, TMDReport
+from src.ref_pipe.utils import GMDLGR as lgr, generate_report, load_profiles_csv
 
 
 MD_TEMPLATE = """---
@@ -69,8 +30,9 @@ first-page: 1
 
 def prepare_md(profile: Profile, output_folder: str) -> Ok[ProfileWithMD] | Err:
     try:
-
-        biblio_keys = profile.biblio_keys.split(",")
+        frame = f"prepare_md"
+        lginf(frame, f"Preparing markdown for profile [[ {profile.id} -- {profile.lastname} ]]...", lgr)
+        biblio_keys = profile.biblio_keys
 
         biblio_keys_str = "\n\n".join([f"@{key}" for key in biblio_keys])
 
@@ -88,6 +50,12 @@ def prepare_md(profile: Profile, output_folder: str) -> Ok[ProfileWithMD] | Err:
 
         profile_with_md = ProfileWithMD(**profile.__dict__, markdown=md)
 
+        lginf(
+            frame,
+            f"Markdown prepared for profile [[ {profile.id} -- {profile.lastname} ]]..., at base folder '{profile_with_md.markdown.base_dir}'",
+            lgr,
+        )
+
         return Ok(out=profile_with_md)
 
     except Exception as e:
@@ -97,7 +65,7 @@ def prepare_md(profile: Profile, output_folder: str) -> Ok[ProfileWithMD] | Err:
         )
 
 
-def write_md_file(profile: ProfileWithMD) -> Ok[ProfileWithMD] | Err:
+def write_md_files(profile: ProfileWithMD) -> Ok[ProfileWithMD] | Err:
     try:
         frame = f"write_md_file"
         md = profile.markdown
@@ -125,7 +93,6 @@ def write_md_file(profile: ProfileWithMD) -> Ok[ProfileWithMD] | Err:
                     code=-3,
                 )
 
-
         main_file_path = md.main_file.file_path(md.base_dir)
         master_file_path = md.master_file.file_path(md.base_dir)
 
@@ -139,6 +106,22 @@ def write_md_file(profile: ProfileWithMD) -> Ok[ProfileWithMD] | Err:
         with open(master_file_path, "w") as f:
             f.write(md.master_file.content)
 
+        if not os.path.exists(main_file_path):
+            return handle_error(
+                frame,
+                f"The markdown file '{main_file_path}' was not written successfully.",
+                lgr,
+                code=-4,
+            )
+
+        if not os.path.exists(master_file_path):
+            return handle_error(
+                frame,
+                f"The markdown file '{master_file_path}' was not written successfully.",
+                lgr,
+                code=-5,
+            )
+
         # consume the contents to save memory
         profile.markdown.main_file.content = ""
         profile.markdown.master_file.content = ""
@@ -149,14 +132,11 @@ def write_md_file(profile: ProfileWithMD) -> Ok[ProfileWithMD] | Err:
         return handle_unexpected_exception(f"An error occurred while trying to write the markdown file:\n\t{e}", lgr)
 
 
-TMainReport: TypeAlias = Iterator[tuple[Profile, Ok[ProfileWithMD] | Err]]
-
-
 def main(
     input_csv: str,
     encoding: str,
     output_folder: str,
-) -> Ok[TMainReport] | Err:
+) -> Ok[TMDReport] | Err:
 
     try:
         if (not input_csv) or (not output_folder) or (not encoding):
@@ -164,7 +144,7 @@ def main(
                 frame="main",
                 msg="Please provide the inputs that this function needs. Check its signature",
                 logger=lgr,
-                code=-2
+                code=-2,
             )
 
         # 1. Load profiles from CSV
@@ -182,63 +162,6 @@ def main(
         return Err(message=f"An error occurred while trying to generate the markdown files:\n\t{e}", code=-1)
 
 
-def generate_report(main_output: TMainReport, output_folder: str, encoding: str) -> Ok[None] | Err:
-    try:
-        frame = f"generate_report"
-        lgr.info(f"{frame}\n\tGenerating report for the markdown file generation...")
-        os.makedirs(output_folder, exist_ok=True)
-
-        report_filename = f"{output_folder}/gen_md_report.csv"
-
-        with open(report_filename, "w", encoding=encoding) as f:
-            writer = csv.writer(f)
-            writer.writerow(
-                [
-                    "id",
-                    "lastname",
-                    "biblio_keys",
-                    "biblio_dependencies_keys",
-                    "status",
-                    "md_file",
-                    "master_file",
-                    "error_message",
-                ]
-            )
-
-            for profile, write_result in main_output:
-                match write_result:
-                    case Ok():
-                        status = "success"
-                        err_msg = ""
-                        md_file = write_result.out.markdown.main_file.name
-                        master_file = write_result.out.markdown.master_file.name
-
-                    case Err(message=message, code=code):
-                        status = "error"
-                        err_msg = message
-                        md_file = ""
-                        master_file = ""
-
-                writer.writerow(
-                    [
-                        profile.id,
-                        profile.lastname,
-                        profile.biblio_keys,
-                        profile.biblio_dependencies_keys,
-                        status,
-                        md_file,
-                        master_file,
-                        err_msg,
-                    ]
-                )
-
-        lgr.info(f"Success! Report written to {report_filename}.")
-        return Ok(out=None)
-
-    except Exception as e:
-        return Err(message=f"An error occurred while trying to generate the markdown files:\n{e}", code=-1)
-
-
 if __name__ == "__main__":
     import argparse
 
@@ -247,7 +170,9 @@ if __name__ == "__main__":
     parser.add_argument(
         "-e", "--encoding", type=str, help="The encoding of the CSV file. 'utf-8' by default.", default="utf-8"
     )
-    parser.add_argument("-o", "--output_folder", type=str, help="The folder where the markdown files will be saved.", required=True)
+    parser.add_argument(
+        "-o", "--output_folder", type=str, help="The folder where the markdown files will be saved.", required=True
+    )
 
     args = parser.parse_args()
 
@@ -261,11 +186,11 @@ if __name__ == "__main__":
             profiles_with_mds = [tup[1] for tup in out_list]
 
             # 1. Write markdown files to disk
-            writes = [rbind(write_md_file, p) for p in profiles_with_mds]
+            writes = [rbind(write_md_files, p) for p in profiles_with_mds]
 
             # 2. Produce report
             zipped = zip(profiles, writes)
-            generate_report(zipped, args.output_folder, args.encoding)
+            generate_report(zipped, args.output_folder, args.encoding, lgr)
 
         case Err(message=msg, code=code):
             pass

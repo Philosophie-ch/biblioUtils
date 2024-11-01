@@ -1,6 +1,9 @@
 .venv*
 **data/
 
+# Dialectica workhouse, copied from Dropbox
+**dwh*/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

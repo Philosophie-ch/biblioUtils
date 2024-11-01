@@ -24,6 +24,7 @@ def load_env_vars(env_file: str) -> Ok[EnvVars] | Err:
         dockerhub_username = os.getenv("DOCKERHUB_USERNAME")
         dltc_workhouse_directory = os.getenv("DLTC_WORKHOUSE_DIRECTORY")
         ref_pipe_directory = os.getenv("REF_PIPE_DIRECTORY")
+        container_name = os.getenv("CONTAINER_NAME")
 
         if not (
             arch
@@ -32,6 +33,7 @@ def load_env_vars(env_file: str) -> Ok[EnvVars] | Err:
             and dockerhub_username
             and dltc_workhouse_directory
             and ref_pipe_directory
+            and container_name
         ):
             return handle_error(
                 frame,
@@ -78,6 +80,7 @@ def load_env_vars(env_file: str) -> Ok[EnvVars] | Err:
                 DOCKERHUB_USERNAME=dockerhub_username,
                 DLTC_WORKHOUSE_DIRECTORY=dltc_workhouse_directory,
                 REF_PIPE_DIRECTORY=ref_pipe_directory,
+                CONTAINER_NAME=container_name,
             )
         )
 
@@ -90,7 +93,7 @@ def load_env_vars(env_file: str) -> Ok[EnvVars] | Err:
 def dltc_env_up(v: EnvVars, compose_file: str) -> Ok[None] | Err:
     try:
         frame = f"main"
-        lginf(frame, f"Setting up dltc-env...", lgr)
+        lginf(frame, f"Setting up the container...", lgr)
 
         if not os.path.exists(compose_file):
             return handle_error(
@@ -98,7 +101,15 @@ def dltc_env_up(v: EnvVars, compose_file: str) -> Ok[None] | Err:
             )
 
         # 1. Load environment variables
-        DOCKER_IMAGE_TAG = f"{v.DOCKERHUB_USERNAME}/dltc-env:latest-{v.ARCH}"
+        DOCKER_IMAGE_TAG = f"{v.DOCKERHUB_USERNAME}/{v.CONTAINER_NAME}:latest-{v.ARCH}"
+
+        # If container is running, return early
+        docker_ps_cmd = ["docker", "ps", "--format", "{{.Names}}"]
+        docker_ps_r = subprocess.run(docker_ps_cmd, capture_output=True, text=True)
+
+        if docker_ps_r.returncode == 0 and v.CONTAINER_NAME in docker_ps_r.stdout:
+            lginf(frame, f"The container '{v.CONTAINER_NAME}' is already running.", lgr)
+            return Ok(out=None)
 
         # 2. Login to DockerHub, pull, and logout
         lginf(frame, f"Logging in to DockerHub...", lgr)
@@ -144,19 +155,19 @@ def dltc_env_up(v: EnvVars, compose_file: str) -> Ok[None] | Err:
                 -5,
             )
 
-        lginf(frame, f"Starting the dltc-env container...", lgr)
+        lginf(frame, f"Starting the container...", lgr)
         docker_up_cmd = ["docker", "compose", "-f", f"{compose_file}", "up", "-d"]
         docker_up_r = subprocess.run(docker_up_cmd, capture_output=True, text=True)
 
         if docker_up_r.returncode != 0:
             return handle_error(
                 frame,
-                f"An error occurred while trying to start the dltc-env container:\n\t{docker_up_r.stderr}",
+                f"An error occurred while trying to start the container:\n\t{docker_up_r.stderr}",
                 lgr,
                 -6,
             )
 
-        lginf(frame, f"Success! dltc-env is up and running.", lgr)
+        lginf(frame, f"Success! container is up and running.", lgr)
         return Ok(out=None)
 
     except subprocess.CalledProcessError as e:
@@ -168,13 +179,13 @@ def dltc_env_up(v: EnvVars, compose_file: str) -> Ok[None] | Err:
         )
 
     except Exception as e:
-        return Err(message=f"An error occurred while trying to setup dltc-env:\n\t{e}", code=-1)
+        return Err(message=f"An error occurred while trying to setup the container :\n\t{e}", code=-1)
 
 
 if __name__ == "__main__":
     import argparse
 
-    parser = argparse.ArgumentParser(description="Setup the dltc-env.")
+    parser = argparse.ArgumentParser(description="Setup the container where to execute the compilation commands.")
 
     parser.add_argument(
         "-e",

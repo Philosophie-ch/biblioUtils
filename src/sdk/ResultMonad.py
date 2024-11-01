@@ -156,18 +156,20 @@ def try_except_wrapper(logger: Logger) -> Callable[[Callable[..., T]], Callable[
                 result = func(*args, **kwargs)
 
                 match result:
-                    case Ok(out=data):
-                        return Ok(out=data)
-                    case Err(message=msg, code=code):
-                        return Err(message=msg, code=code)
+                    case Err():
+                        return result
+                    case Ok():
+                        return result
                     case _:
                         return Ok(out=result)
 
             except Exception as e:
-                error_message = (
-                    f"An error occurred in function '{func.__name__}' with arguments '{args}, {kwargs}':\n\t{e}"
-                )
+                error_message = f"An error occurred in function '{func.__name__}'. Detail:\n{e}"
                 logger.error(error_message)
+
+                error_message_debug = f"Function that triggered the error was '{func.__name__}', called with... \n\t\targs: '[ {args} ]\n\t\tkwargs: [ {kwargs} ]'"
+                logger.debug
+
                 return Err(message=error_message, code=-1)
 
         return wrapper

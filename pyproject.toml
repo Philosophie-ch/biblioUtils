@@ -35,12 +35,16 @@ dev = [
     "black>=24.4,<25.0",
     "black[jupyter]",
     "jupyter",
+    "types-beautifulsoup4",
 ]
 
 [tool.mypy]
 python_version = "3.11"
 strict = true
 explicit_package_bases = true
+exclude = [
+    ".*/dwh.*/.*",
+]
 
 [[tool.mypy.overrides]]
 module = [
@@ -52,7 +56,7 @@ ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 minversion = "6.0"
-addopts = "-ra -s"
+addopts = "-ra"
 testpaths = ["tests"]
 pythonpath = ["."]
 
