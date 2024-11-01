@@ -7,9 +7,11 @@ from typing import Literal, TypeAlias
 
 from dataclasses import dataclass
 
+from src.sdk.ResultMonad import Err, Ok, runwrap, try_except_wrapper
 from src.sdk.utils import get_logger
 
-logger = get_logger("biblio_dependencies")
+lgr = get_logger("biblio_dependencies")
+
 
 @dataclass
 class INBibEntry:
@@ -25,6 +27,8 @@ class INBibEntry:
 class ParsedBibEntry(INBibEntry):
     further_references_raw: list[str]
     depends_on_raw: list[str]
+    status: Literal["success", "error"]
+    error_message: str = ""
 
 
 @dataclass
@@ -33,6 +37,8 @@ class ProcessedBibEntry(INBibEntry):
     further_references_bad: str
     depends_on_good: str
     depends_on_bad: str
+    status: Literal["success", "error"]
+    error_message: str = ""
 
 
 CitetField: TypeAlias = Literal[
@@ -67,31 +73,66 @@ def load_bibentries_csv(filename: str, encoding: str) -> list[INBibEntry]:
     return rows
 
 
+@try_except_wrapper(lgr)
 def get_citet_bibkeys(row: INBibEntry, citet_field: CitetField) -> list[str]:
-    data = getattr(row, citet_field)
-    try:
-        citet_l = TexSoup(data).find_all('citet')
-        citets_raw_nested = [citet.args for citet in citet_l if isinstance(citet, TexNode)]
-        citets_raw_flat = [item for sublist in citets_raw_nested for item in sublist]
-        citets_s = [citet.string.split(",") for citet in citets_raw_flat if isinstance(citet, BraceGroup)]
-        citets_s_flat = [item.strip() for sublist in citets_s for item in sublist]
 
-        return citets_s_flat
-    except Exception as e:
-        logger.error(f"Error parsing field '{citet_field}' in row '{row.id}'. Content of the field: {data}. Error:\n{e}")
-        return []
+    data = getattr(row, citet_field)
+    citet_l = TexSoup(data).find_all('citet')
+    citets_raw_nested = [citet.args for citet in citet_l if isinstance(citet, TexNode)]
+    citets_raw_flat = [item for sublist in citets_raw_nested for item in sublist]
+    citets_s = [citet.string.split(",") for citet in citets_raw_flat if isinstance(citet, BraceGroup)]
+    citets_s_flat = [item.strip() for sublist in citets_s for item in sublist]
+
+    return citets_s_flat
+
+
+@dataclass
+class CitetResults:
+    notes: Ok[list[str]] | Err
+    title: Ok[list[str]] | Err
+    further_note: Ok[list[str]] | Err
+    crossref: Ok[list[str]] | Err
 
 
 def parse_bibentry(row: INBibEntry) -> ParsedBibEntry:
-    notes_bibkeys = get_citet_bibkeys(row, "notes")
-    title_bibkeys = get_citet_bibkeys(row, "title")
+    error_messages = []
 
-    further_references_raw = notes_bibkeys + title_bibkeys
+    further_references_raw: list[str] = []
 
-    further_notes_bibkeys = get_citet_bibkeys(row, "further_note")
-    crossref_bibkeys = get_citet_bibkeys(row, "crossref")
+    citet_results = CitetResults(
+        notes=get_citet_bibkeys(row, "notes"),
+        title=get_citet_bibkeys(row, "title"),
+        further_note=get_citet_bibkeys(row, "further_note"),
+        crossref=get_citet_bibkeys(row, "crossref"),
+    )
 
-    depends_on_raw = further_references_raw + further_notes_bibkeys + crossref_bibkeys
+    for field in ["notes", "title"]:
+        if isinstance(getattr(citet_results, field), Err):
+            error_messages.append(f"Error parsing '{field}' field: {getattr(citet_results, field).message}")
+        else:
+            further_references_raw += getattr(citet_results, field).out
+
+    depends_on_raw = list(further_references_raw)
+
+    for field in ["further_note", "crossref"]:
+        if isinstance(getattr(citet_results, field), Err):
+            error_messages.append(f"Error parsing '{field}' field: {getattr(citet_results, field).message}")
+        else:
+            depends_on_raw += getattr(citet_results, field).out
+
+    if error_messages != []:
+        return ParsedBibEntry(
+            id=row.id,
+            bibkey=row.bibkey,
+            title=row.title,
+            notes=row.notes,
+            crossref=row.crossref,
+            further_note=row.further_note,
+            further_references_raw=[],
+            depends_on_raw=[],
+            status="error",
+            error_message="\n\n".join(error_messages),
+        )
 
     return ParsedBibEntry(
         id=row.id,
@@ -102,6 +143,7 @@ def parse_bibentry(row: INBibEntry) -> ParsedBibEntry:
         further_note=row.further_note,
         further_references_raw=further_references_raw,
         depends_on_raw=depends_on_raw,
+        status="success",
     )
 
 
@@ -113,22 +155,17 @@ def get_all_bibkeys(rows: list[INBibEntry]) -> list[str]:
 
 
 def process_bibentry(parsed_bibentry: ParsedBibEntry, all_bibkeys_list: list[str]) -> ProcessedBibEntry:
-    further_references_good = []
-    further_references_bad = []
-    depends_on_good = []
-    depends_on_bad = []
+    further_refs = (
+        (bibkey, 0) if bibkey in all_bibkeys_list else (bibkey, 1) for bibkey in parsed_bibentry.further_references_raw
+    )
+    depends_on = (
+        (bibkey, 0) if bibkey in all_bibkeys_list else (bibkey, 1) for bibkey in parsed_bibentry.depends_on_raw
+    )
 
-    for bibkey in parsed_bibentry.further_references_raw:
-        if bibkey in all_bibkeys_list:
-            further_references_good.append(bibkey)
-        else:
-            further_references_bad.append(bibkey)
-
-    for bibkey in parsed_bibentry.depends_on_raw:
-        if bibkey in all_bibkeys_list:
-            depends_on_good.append(bibkey)
-        else:
-            depends_on_bad.append(bibkey)
+    further_references_good = [bibkey for bibkey, status in further_refs if status == 0]
+    further_references_bad = [bibkey for bibkey, status in further_refs if status == 1]
+    depends_on_good = [bibkey for bibkey, status in depends_on if status == 0]
+    depends_on_bad = [bibkey for bibkey, status in depends_on if status == 1]
 
     return ProcessedBibEntry(
         id=parsed_bibentry.id,
@@ -141,15 +178,26 @@ def process_bibentry(parsed_bibentry: ParsedBibEntry, all_bibkeys_list: list[str
         further_references_bad=",".join(further_references_bad),
         depends_on_good=",".join(depends_on_good),
         depends_on_bad=",".join(depends_on_bad),
+        status=parsed_bibentry.status,
+        error_message=parsed_bibentry.error_message,
     )
 
 
 def main(filename: str, encoding: str, output_filename: str) -> None:
+
+    lgr.info(f"Loading bibentries from '{filename}' [1/5]")
     rows = load_bibentries_csv(filename, encoding)
+
+    lgr.info(f"Parsing {len(rows)} entries [2/5]")
     parsed_rows = (parse_bibentry(row) for row in rows)
+
+    lgr.info("Getting all bibkeys in the file [3/5]")
     all_bibkeys = get_all_bibkeys(rows)
+
+    lgr.info("Processing the entries [4/5]")
     processed_rows = (process_bibentry(parsed_row, all_bibkeys) for parsed_row in parsed_rows)
 
+    lgr.info(f"Writing the output to '{output_filename}' [5/5]")
     fieldnames = list(INBibEntry.__annotations__.keys()) + list(ProcessedBibEntry.__annotations__.keys())
 
     with open(output_filename, 'w', encoding=encoding) as f:
@@ -157,8 +205,7 @@ def main(filename: str, encoding: str, output_filename: str) -> None:
         writer.writeheader()
         writer.writerows([row.__dict__ for row in processed_rows])
 
-    print(f"Processed {len(rows)} entries")
-
+    lgr.info(f"Success! Processed {len(rows)} entries.")
     return None
 
 
