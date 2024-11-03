@@ -1,8 +1,7 @@
 import csv
-from logging import Logger
 import os
 from src.sdk.ResultMonad import Err, Ok, runwrap, runwrap_or, try_except_wrapper
-from src.sdk.utils import get_logger, handle_error, remove_extra_whitespace
+from src.sdk.utils import get_logger, remove_extra_whitespace
 from src.ref_pipe.models import Profile, TMDReport, THTMLReport
 
 
