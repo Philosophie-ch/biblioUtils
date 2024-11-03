@@ -3,7 +3,7 @@ import os
 
 from src.ref_pipe.filesystem_io import load_profiles_csv
 from src.ref_pipe import gen_md as mdbib
-from src.ref_pipe.models import Profile, ProfileWithMD
+from src.ref_pipe.models import Profile
 from src.sdk.ResultMonad import Ok
 
 
@@ -77,7 +77,7 @@ def test_prepare_md() -> None:
     temp_folder = tempfile.mkdtemp()
 
     try:
-        output = mdbib.prepare_md(profile, temp_folder)
+        output = mdbib.prepare_md(profile, temp_folder, "/test", temp_folder)
 
         assert isinstance(output, Ok)
         assert output.out.markdown is not None
@@ -104,7 +104,7 @@ def test_load_csv_and_prepare_md_pipe() -> None:
 
         for profile in profiles:
 
-            step_two_output = mdbib.prepare_md(profile, temp_folder)
+            step_two_output = mdbib.prepare_md(profile, temp_folder, "/test", temp_folder)
 
             assert isinstance(step_two_output, Ok)
 

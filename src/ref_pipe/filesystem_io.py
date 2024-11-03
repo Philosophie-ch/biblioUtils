@@ -1,7 +1,7 @@
 import csv
 import os
 from src.sdk.ResultMonad import Err, Ok, runwrap, runwrap_or, try_except_wrapper
-from src.sdk.utils import get_logger, remove_extra_whitespace
+from src.sdk.utils import get_logger, lginf, remove_extra_whitespace
 from src.ref_pipe.models import Profile, TMDReport, THTMLReport
 
 
@@ -18,7 +18,7 @@ def parse_bibkeys(bibkeys_s: str) -> list[str]:
 def load_profiles_csv(input_file: str, encoding: str) -> list[Profile]:
 
     frame = f"load_profiles_csv"
-    lgr.info(f"{frame}\n\tReading CSV file '{input_file}' with encoding '{encoding}'...")
+    lginf(frame, f"Reading CSV file '{input_file}' with encoding '{encoding}'...", lgr)
 
     if not os.path.exists(input_file):
         msg = f"The input file '{input_file}' does not exist."
@@ -54,10 +54,10 @@ def load_profiles_csv(input_file: str, encoding: str) -> list[Profile]:
 def generate_report(main_output: TMDReport | THTMLReport, output_folder: str, encoding: str) -> None:
 
     frame = f"generate_report"
-    lgr.info(f"{frame}\n\tGenerating report for the markdown file generation...")
+    lginf(frame, f"Generating report for the markdown file generation...", lgr)
     os.makedirs(output_folder, exist_ok=True)
 
-    report_filename = f"{output_folder}/gen_md_report.csv"
+    report_filename = f"{output_folder}/ref_pipe_report.csv"
 
     with open(report_filename, "w", encoding=encoding) as f:
         writer = csv.writer(f, quotechar='"')
@@ -104,6 +104,6 @@ def generate_report(main_output: TMDReport | THTMLReport, output_folder: str, en
                 ]
             )
 
-    lgr.info(f"Success! Report written to {report_filename}.")
+    lginf(frame, f"Success! Report written to {report_filename}.", lgr)
 
     return None

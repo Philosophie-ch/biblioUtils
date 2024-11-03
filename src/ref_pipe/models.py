@@ -1,19 +1,44 @@
 from dataclasses import dataclass
 import os
-from typing import Iterator, List, Tuple, TypeAlias, TypeVar
+from typing import Iterator, List, TypeAlias
 
 from src.sdk.ResultMonad import Err, Ok
 
 
 @dataclass
 class EnvVars:
+    """
+    Environment variables required for the ref_pipe project.
+
+    Attributes:
+    ----------
+    `ARCH`: str
+        Architecture of the system. Must be either 'amd64' or 'arm64'.
+    `DLTC_BIBLIO`: str
+        Basename of the bibliography file, directly inside the DLTC_WORKHOUSE_DIRECTORY.
+    `DOCKERHUB_TOKEN`: str
+        Token for DockerHub.
+    `DOCKERHUB_USERNAME`: str
+        Username for DockerHub.
+    `DLTC_WORKHOUSE_DIRECTORY`: str
+        Path to the DLTC_WORKHOUSE_DIRECTORY.
+    `REF_PIPE_DIR_RELATIVE_PATH`: str
+        Relative path to the ref_pipe directory. This is used to locate the ref_pipe directory inside the DLTC_WORKHOUSE_DIRECTORY, both in the local system and in the container.
+    `CONTAINER_NAME`: str
+        Name of the container to run the commands in.
+    `DOCKER_COMPOSE_FILE`: str
+        Path to the Docker Compose file.
+    """
+
     ARCH: str
     DLTC_BIBLIO: str
     DOCKERHUB_TOKEN: str
     DOCKERHUB_USERNAME: str
     DLTC_WORKHOUSE_DIRECTORY: str
-    REF_PIPE_DIRECTORY: str
+    CONTAINER_DLTC_WORKHOUSE_DIRECTORY: str
+    REF_PIPE_DIR_RELATIVE_PATH: str
     CONTAINER_NAME: str
+    DOCKER_COMPOSE_FILE: str
 
     @classmethod
     def attribute_names(self) -> str:
@@ -36,15 +61,37 @@ class Profile:
 @dataclass
 class File:
     content: str
-    name: str
+    basename: str
 
-    def file_path(self, base_dir: str) -> str:
-        return os.path.join(base_dir, self.name)
+    def full_file_path(self, base_dir: str) -> str:
+        return os.path.join(base_dir, self.basename)
+
+    def relative_file_path(self, relative_dir: str) -> str:
+        return os.path.join(relative_dir, self.basename)
 
 
 @dataclass
 class Markdown:
-    base_dir: str
+    """
+    Markdown files for a profile.
+
+    Attributes:
+    ----------
+    `local_base_dir`: str
+        Base directory for the markdown files in the host system.
+    `container_base_dir`: str
+        Base directory for the markdown files in the container.
+    `relative_output_dir`: str
+        Relative directory for the markdown files, inside the base directory (both in the host system and in the container).
+    `main_file`: File
+        Main markdown file with the content to convert to HTML.
+    `master_file`: File
+        'master.md' file needed to compile the main markdown file to HTML.
+    """
+
+    local_base_dir: str
+    container_base_dir: str
+    relative_output_dir: str
     main_file: File
     master_file: File
 

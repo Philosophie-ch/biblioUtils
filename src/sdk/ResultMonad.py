@@ -163,7 +163,6 @@ def try_except_wrapper(logger: Logger) -> Callable[[Callable[..., T]], Callable[
 
                 match result:
                     case Err(message=msg, code=code):
-                        logger.error(f"An error occurred in function '{func.__name__}'. Detail:\n{msg}")
                         return result
                     case Ok():
                         logger.debug(f"Function '{func.__name__}' executed successfully.")
