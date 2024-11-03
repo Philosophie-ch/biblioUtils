@@ -149,18 +149,27 @@ def runwrap_or(result: Ok[T] | Err, default: T) -> T:
 
 
 def try_except_wrapper(logger: Logger) -> Callable[[Callable[..., T]], Callable[..., Ok[T] | Err]]:
+    """
+    Decorator that wraps a function in a try-except block, logging any errors that occur. The wrapped function will then always return a Ok[T] or Err as output.
+
+    """
+
     def decorator(func: Callable[..., T]) -> Callable[..., Ok[T] | Err]:
         @wraps(func)
         def wrapper(*args: Any, **kwargs: Any) -> Ok[T] | Err:
             try:
+                logger.debug(f"Calling function '{func.__name__}' with args: {args} and kwargs: {kwargs}")
                 result = func(*args, **kwargs)
 
                 match result:
-                    case Err():
+                    case Err(message=msg, code=code):
+                        logger.error(f"An error occurred in function '{func.__name__}'. Detail:\n{msg}")
                         return result
                     case Ok():
+                        logger.debug(f"Function '{func.__name__}' executed successfully.")
                         return result
                     case _:
+                        logger.debug(f"Function '{func.__name__}' executed successfully.")
                         return Ok(out=result)
 
             except Exception as e:
@@ -177,3 +186,47 @@ def try_except_wrapper(logger: Logger) -> Callable[[Callable[..., T]], Callable[
         return wrapper
 
     return decorator
+
+
+def runwrap_soft(result: Ok[T] | Err) -> T | Err:
+    """
+    Unwrap a Result.
+
+    Parameters
+    ----------
+    result : Result[T]
+        The Result to unwrap.
+
+    Returns
+    -------
+    T
+        The data inside the Result.
+
+    Raises
+    ------
+    ValueError
+        If the Result is an Err.
+    """
+
+    match result:
+        case Ok(out=data):
+            return data
+        case Err(message=msg, code=code):
+            return Err(message=msg, code=code) 
+
+
+
+def funwrap(func: Callable[..., Ok[T] | Err]) -> Callable[..., T | Err]:
+    """
+    Wrap a function that returns a Result in a function that returns the data inside the Result.
+    """
+    def wrapper(*args: Any, **kwargs: Any) -> T | Err:
+        result = func(*args, **kwargs)
+        match result:
+            case Ok(out=data):
+                return data
+            case Err(message=msg, code=code):
+                return Err(message=msg, code=code)
+            case _:
+                raise ValueError(f"Function '{func.__name__}' returned an unknown Result type, with value '{result}'.")
+    return wrapper
