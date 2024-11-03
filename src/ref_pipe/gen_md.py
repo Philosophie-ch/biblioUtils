@@ -1,9 +1,12 @@
 import os
 
-from src.sdk.utils import handle_error, handle_unexpected_exception, lginf
+from src.sdk.utils import handle_error, handle_unexpected_exception, lginf, get_logger
 from src.sdk.ResultMonad import Err, Ok, rbind, runwrap
 from src.ref_pipe.models import File, Profile, Markdown, ProfileWithMD, TMDReport
-from src.ref_pipe.utils import GMDLGR as lgr, generate_report, load_profiles_csv
+from src.ref_pipe.filesystem_io import generate_report, load_profiles_csv
+
+
+lgr = get_logger("Generate Markdown")
 
 
 MD_TEMPLATE = """---

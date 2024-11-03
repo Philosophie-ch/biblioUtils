@@ -1,7 +1,7 @@
 import tempfile
 import os
 
-from src.ref_pipe.utils import load_profiles_csv
+from src.ref_pipe.filesystem_io import load_profiles_csv
 from src.ref_pipe import gen_md as mdbib
 from src.ref_pipe.models import Profile, ProfileWithMD
 from src.sdk.ResultMonad import Ok

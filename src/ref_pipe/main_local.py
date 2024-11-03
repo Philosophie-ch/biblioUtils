@@ -3,11 +3,14 @@ from typing import Callable
 from src.ref_pipe.compile_html import dltc_env_exec, process_raw_html
 from src.ref_pipe.gen_md import prepare_md, write_md_files
 from src.ref_pipe.models import Profile, ProfileWithHTML, THTMLReport
-from src.sdk.utils import lginf
+from src.sdk.utils import lginf, get_logger
 from src.sdk.ResultMonad import Err, Ok, rbind, runwrap, try_except_wrapper
 
 from src.ref_pipe.setup import dltc_env_up, load_env_vars
-from src.ref_pipe.utils import MAINLGR as lgr, generate_report, load_profiles_csv
+from src.ref_pipe.filesystem_io import generate_report, load_profiles_csv
+
+
+lgr = get_logger("Main Local")
 
 
 @try_except_wrapper(lgr)

@@ -3,9 +3,11 @@ import subprocess
 from dotenv import load_dotenv
 
 from src.ref_pipe.models import EnvVars
-from src.sdk.utils import handle_error, handle_unexpected_exception, lginf
+from src.sdk.utils import handle_error, handle_unexpected_exception, lginf, get_logger
 from src.sdk.ResultMonad import Err, Ok, runwrap
-from src.ref_pipe.utils import DTSLGR as lgr
+
+
+lgr = get_logger("Setup")
 
 
 def load_env_vars(env_file: str) -> Ok[EnvVars] | Err:
