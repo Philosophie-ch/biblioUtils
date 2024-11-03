@@ -5,7 +5,7 @@ T = TypeVar("T")
 
 class GeneratorAdapter(Generic[T]):
     """
-    Adapter class to allow for the use of a generator as an iterator. In this way, we can automatically consume the generator more than once. Usage example:
+    Adapter class to allow consuming a generator more than once. Usage example:
 
     ```python
     def my_generator() -> Generator[int, None, None]:
