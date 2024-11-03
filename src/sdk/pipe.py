@@ -5,6 +5,7 @@ from src.sdk.ResultMonad import Err, Ok
 T = TypeVar('T')
 U = TypeVar('U')
 
+
 class pipe(Generic[T]):
     def __init__(self, value: T):
         self.value = value
@@ -13,7 +14,9 @@ class pipe(Generic[T]):
     def output(self) -> T:
         return self.value
 
-    def __rshift__(self, func: Callable[[T | 'pipe[T]'], U | Ok[U]]) -> 'pipe[U]' | U | 'pipe[T]' | Err | 'pipe[Err]' | Ok[U]:
+    def __rshift__(
+        self, func: Callable[[T | 'pipe[T]'], U | Ok[U]]
+    ) -> 'pipe[U]' | U | 'pipe[T]' | Err | 'pipe[Err]' | Ok[U]:
         """
         TODO: fix typing
         TODO: fix mypy not following these type hints
@@ -54,10 +57,11 @@ class pipe(Generic[T]):
     def __repr__(self) -> str:
         return f'{self.value}'
 
+
 def pipe_out(pipe_result: pipe[T] | pipe[Ok[T]] | T) -> T:
     if isinstance(pipe_result, pipe):
         if isinstance(pipe_result.output, Ok):
             return pipe_result.output.out
 
-        return pipe_result.output   # Return the unwrapped result
+        return pipe_result.output  # Return the unwrapped result
     return pipe_result

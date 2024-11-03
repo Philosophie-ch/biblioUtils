@@ -212,14 +212,14 @@ def runwrap_soft(result: Ok[T] | Err) -> T | Err:
         case Ok(out=data):
             return data
         case Err(message=msg, code=code):
-            return Err(message=msg, code=code) 
-
+            return Err(message=msg, code=code)
 
 
 def funwrap(func: Callable[..., Ok[T] | Err]) -> Callable[..., T | Err]:
     """
     Wrap a function that returns a Result in a function that returns the data inside the Result.
     """
+
     def wrapper(*args: Any, **kwargs: Any) -> T | Err:
         result = func(*args, **kwargs)
         match result:
@@ -229,4 +229,5 @@ def funwrap(func: Callable[..., Ok[T] | Err]) -> Callable[..., T | Err]:
                 return Err(message=msg, code=code)
             case _:
                 raise ValueError(f"Function '{func.__name__}' returned an unknown Result type, with value '{result}'.")
+
     return wrapper
