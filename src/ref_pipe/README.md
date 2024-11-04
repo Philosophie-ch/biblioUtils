@@ -18,13 +18,13 @@ source .venv/bin/activate
 pip install .
 ```
 
-Then, populate the `.env` file following the template.
+Then, populate the `.env` file following the template. You'll also need access to a copy Dialectica's "dltc-workhouse" directory, and access to a docker image with the necessary dependencies to compile Dialectica articles.
 
 
 ## Usage
 
-To execute the pipeline, run the following command at the root of the project:
+To execute the pipeline, run the following command at the root of the project, with the virtual environment active:
 
 ```bash
-PYTHONPATH='.' python src/ref_pipe/main.py -e src/ref_pipe/.env -c src/ref_pipe/docker-compose.yml
+PYTHONPATH='.' python src/ref_pipe/main_local.py -i data/rptest.csv -e 'utf-16' -v src/ref_pipe/.env
 ```
