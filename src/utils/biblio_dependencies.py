@@ -1,16 +1,16 @@
-from logging import Logger, log
 from TexSoup import TexSoup
 from TexSoup.data import TexNode, BraceGroup
 import csv
 import os
 from typing import Literal, TypeAlias
 
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 
-from src.sdk.ResultMonad import Err, Ok, runwrap, try_except_wrapper
-from src.sdk.utils import get_logger
+from src.sdk.ResultMonad import Err, Ok, try_except_wrapper
+from src.sdk.utils import get_logger, remove_extra_whitespace
 
-lgr = get_logger("biblio_dependencies")
+
+lgr = get_logger("Biblio Dependencies")
 
 
 @dataclass
@@ -39,6 +39,9 @@ class ProcessedBibEntry(INBibEntry):
     depends_on_bad: str
     status: Literal["success", "error"]
     error_message: str = ""
+
+    def dict_dump(self) -> dict[str, str]:
+        return asdict(self)
 
 
 CitetField: TypeAlias = Literal[
@@ -77,7 +80,13 @@ def load_bibentries_csv(filename: str, encoding: str) -> list[INBibEntry]:
 def get_citet_bibkeys(row: INBibEntry, citet_field: CitetField) -> list[str]:
 
     data = getattr(row, citet_field)
-    citet_l = TexSoup(data).find_all('citet')
+
+    try:
+        # Isolate chaos
+        citet_l = TexSoup(data).find_all('citet')
+    except Exception as e:
+        raise ValueError(f"External dependency error! TexSoup failed for '{citet_field}'.\n{e}")
+
     citets_raw_nested = [citet.args for citet in citet_l if isinstance(citet, TexNode)]
     citets_raw_flat = [item for sublist in citets_raw_nested for item in sublist]
     citets_s = [citet.string.split(",") for citet in citets_raw_flat if isinstance(citet, BraceGroup)]
@@ -91,7 +100,6 @@ class CitetResults:
     notes: Ok[list[str]] | Err
     title: Ok[list[str]] | Err
     further_note: Ok[list[str]] | Err
-    crossref: Ok[list[str]] | Err
 
 
 def parse_bibentry(row: INBibEntry) -> ParsedBibEntry:
@@ -103,7 +111,6 @@ def parse_bibentry(row: INBibEntry) -> ParsedBibEntry:
         notes=get_citet_bibkeys(row, "notes"),
         title=get_citet_bibkeys(row, "title"),
         further_note=get_citet_bibkeys(row, "further_note"),
-        crossref=get_citet_bibkeys(row, "crossref"),
     )
 
     for field in ["notes", "title"]:
@@ -114,11 +121,15 @@ def parse_bibentry(row: INBibEntry) -> ParsedBibEntry:
 
     depends_on_raw = list(further_references_raw)
 
-    for field in ["further_note", "crossref"]:
+    for field in ["further_note"]:
         if isinstance(getattr(citet_results, field), Err):
             error_messages.append(f"Error parsing '{field}' field: {getattr(citet_results, field).message}")
         else:
             depends_on_raw += getattr(citet_results, field).out
+
+    crossrefs_parsed = [remove_extra_whitespace(cr) for cr in row.crossref.split(",")] if row.crossref else []
+
+    depends_on_raw += crossrefs_parsed
 
     if error_messages != []:
         return ParsedBibEntry(
@@ -203,20 +214,21 @@ def main(filename: str, encoding: str, output_filename: str) -> None:
     with open(output_filename, 'w', encoding=encoding) as f:
         writer = csv.DictWriter(f, fieldnames=fieldnames)
         writer.writeheader()
-        writer.writerows([row.__dict__ for row in processed_rows])
+        writer.writerows((row.dict_dump() for row in processed_rows))
 
-    lgr.info(f"Success! Processed {len(rows)} entries.")
+    lgr.info(f"Success! Processed {len(rows)} entries. Report written to the file below ↴\n\t{output_filename}")
+
     return None
 
 
-if __name__ == "__main__":
+def cli_main() -> None:
     import argparse
 
     parser = argparse.ArgumentParser(description="Process a CSV file with BibTeX entries")
 
     parser.add_argument(
-        "-f",
-        "--filename",
+        "-i",
+        "--input-csv",
         type=str,
         help="The CSV file to process. Needs to have the following columns: 'id', 'bibkey', 'title', 'notes', 'crossref', 'further_note'.",
         required=True,
@@ -224,8 +236,12 @@ if __name__ == "__main__":
 
     parser.add_argument("-e", "--encoding", type=str, help="The encoding of the CSV file.", required=True)
 
-    parser.add_argument("-o", "--output_filename", type=str, help="The output CSV file.", required=True)
+    parser.add_argument("-o", "--output-filename", type=str, help="The output CSV file.", required=True)
 
     args = parser.parse_args()
 
-    main(args.filename, args.encoding, args.output_filename)
+    main(args.input_csv, args.encoding, args.output_filename)
+
+
+if __name__ == "__main__":
+    cli_main()
