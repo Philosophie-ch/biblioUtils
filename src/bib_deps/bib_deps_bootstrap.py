@@ -1,85 +1,20 @@
 from TexSoup import TexSoup
 from TexSoup.data import TexNode, BraceGroup
 import csv
-import os
-from typing import Literal, TypeAlias
 
-from dataclasses import asdict, dataclass
-
-from src.sdk.ResultMonad import Err, Ok, try_except_wrapper
+from src.bib_deps.filesystem_io import load_bibentries_csv
+from src.bib_deps.models import CitetResults, INBibEntry, CitetField, ParsedBibEntry, ProcessedBibEntry
+from src.sdk.ResultMonad import Err, runwrap, try_except_wrapper
 from src.sdk.utils import get_logger, remove_extra_whitespace
 
 
 lgr = get_logger("Biblio Dependencies")
 
 
-@dataclass
-class INBibEntry:
-    id: str
-    bibkey: str
-    title: str
-    notes: str
-    crossref: str
-    further_note: str
-
-
-@dataclass
-class ParsedBibEntry(INBibEntry):
-    further_references_raw: list[str]
-    depends_on_raw: list[str]
-    status: Literal["success", "error"]
-    error_message: str = ""
-
-
-@dataclass
-class ProcessedBibEntry(INBibEntry):
-    further_references_good: str
-    further_references_bad: str
-    depends_on_good: str
-    depends_on_bad: str
-    status: Literal["success", "error"]
-    error_message: str = ""
-
-    def dict_dump(self) -> dict[str, str]:
-        return asdict(self)
-
-
-CitetField: TypeAlias = Literal[
-    # For further_references
-    "title",
-    "notes",
-    # for depends_on
-    "crossref",
-    "further_note",
-]
-
-
-def load_bibentries_csv(filename: str, encoding: str) -> list[INBibEntry]:
-
-    if not os.path.exists(filename):
-        raise FileNotFoundError(f"File '{filename}' not found")
-
-    with open(filename, 'r', encoding=encoding) as f:
-        csv_reader = csv.DictReader(f)
-        rows = [
-            INBibEntry(
-                id=row['id'],
-                bibkey=row['bibkey'],
-                title=row['title'],
-                notes=row['notes'],
-                crossref=row['crossref'],
-                further_note=row['further_note'],
-            )
-            for row in csv_reader
-        ]
-
-    return rows
-
-
 @try_except_wrapper(lgr)
-def get_citet_bibkeys(row: INBibEntry, citet_field: CitetField) -> list[str]:
+def get_citet_bibkeys(in_bibentry: INBibEntry, citet_field: CitetField) -> list[str]:
 
-    data = getattr(row, citet_field)
+    data = getattr(in_bibentry, citet_field)
 
     try:
         # Isolate chaos
@@ -95,22 +30,16 @@ def get_citet_bibkeys(row: INBibEntry, citet_field: CitetField) -> list[str]:
     return citets_s_flat
 
 
-@dataclass
-class CitetResults:
-    notes: Ok[list[str]] | Err
-    title: Ok[list[str]] | Err
-    further_note: Ok[list[str]] | Err
-
-
-def parse_bibentry(row: INBibEntry) -> ParsedBibEntry:
+@try_except_wrapper(lgr)
+def parse_bibentry(in_bibentry: INBibEntry) -> ParsedBibEntry:
     error_messages = []
 
     further_references_raw: list[str] = []
 
     citet_results = CitetResults(
-        notes=get_citet_bibkeys(row, "notes"),
-        title=get_citet_bibkeys(row, "title"),
-        further_note=get_citet_bibkeys(row, "further_note"),
+        notes=get_citet_bibkeys(in_bibentry, "notes"),
+        title=get_citet_bibkeys(in_bibentry, "title"),
+        further_note=get_citet_bibkeys(in_bibentry, "further_note"),
     )
 
     for field in ["notes", "title"]:
@@ -127,18 +56,18 @@ def parse_bibentry(row: INBibEntry) -> ParsedBibEntry:
         else:
             depends_on_raw += getattr(citet_results, field).out
 
-    crossrefs_parsed = [remove_extra_whitespace(cr) for cr in row.crossref.split(",")] if row.crossref else []
+    crossrefs_parsed = [remove_extra_whitespace(cr) for cr in in_bibentry.crossref.split(",")] if in_bibentry.crossref else []
 
     depends_on_raw += crossrefs_parsed
 
     if error_messages != []:
         return ParsedBibEntry(
-            id=row.id,
-            bibkey=row.bibkey,
-            title=row.title,
-            notes=row.notes,
-            crossref=row.crossref,
-            further_note=row.further_note,
+            id=in_bibentry.id,
+            bibkey=in_bibentry.bibkey,
+            title=in_bibentry.title,
+            notes=in_bibentry.notes,
+            crossref=in_bibentry.crossref,
+            further_note=in_bibentry.further_note,
             further_references_raw=[],
             depends_on_raw=[],
             status="error",
@@ -146,25 +75,27 @@ def parse_bibentry(row: INBibEntry) -> ParsedBibEntry:
         )
 
     return ParsedBibEntry(
-        id=row.id,
-        bibkey=row.bibkey,
-        title=row.title,
-        notes=row.notes,
-        crossref=row.crossref,
-        further_note=row.further_note,
+        id=in_bibentry.id,
+        bibkey=in_bibentry.bibkey,
+        title=in_bibentry.title,
+        notes=in_bibentry.notes,
+        crossref=in_bibentry.crossref,
+        further_note=in_bibentry.further_note,
         further_references_raw=further_references_raw,
         depends_on_raw=depends_on_raw,
         status="success",
     )
 
 
-def get_all_bibkeys(rows: list[INBibEntry]) -> list[str]:
+@try_except_wrapper(lgr)
+def get_all_bibkeys(all_in_bibentries: list[INBibEntry]) -> list[str]:
 
-    all_bibkeys = [row.bibkey for row in rows]
+    all_bibkeys = [row.bibkey for row in all_in_bibentries]
 
     return all_bibkeys
 
 
+@try_except_wrapper(lgr)
 def process_bibentry(parsed_bibentry: ParsedBibEntry, all_bibkeys_list: list[str]) -> ProcessedBibEntry:
     further_refs = (
         (bibkey, 0) if bibkey in all_bibkeys_list else (bibkey, 1) for bibkey in parsed_bibentry.further_references_raw
@@ -194,10 +125,21 @@ def process_bibentry(parsed_bibentry: ParsedBibEntry, all_bibkeys_list: list[str
     )
 
 
-def main(filename: str, encoding: str, output_filename: str) -> None:
+@try_except_wrapper(lgr)
+def bib_deps_bootstrap_pipe(in_bibentry: INBibEntry, all_bibkeys_list: list[str]) -> ProcessedBibEntry:
+    
+    parsed_bibentry = parse_bibentry(in_bibentry)
+    processed_bibentry = runwrap(process_bibentry(parsed_bibentry, all_bibkeys_list))
+
+    return processed_bibentry
+
+
+
+@try_except_wrapper(lgr)
+def main_bootstrap(filename: str, encoding: str, output_filename: str) -> None:
 
     lgr.info(f"Loading bibentries from '{filename}' [1/5]")
-    rows = load_bibentries_csv(filename, encoding)
+    rows = runwrap(load_bibentries_csv(filename, encoding))
 
     lgr.info(f"Parsing {len(rows)} entries [2/5]")
     parsed_rows = (parse_bibentry(row) for row in rows)
@@ -240,7 +182,7 @@ def cli_main() -> None:
 
     args = parser.parse_args()
 
-    main(args.input_csv, args.encoding, args.output_filename)
+    main_bootstrap(args.input_csv, args.encoding, args.output_filename)
 
 
 if __name__ == "__main__":
