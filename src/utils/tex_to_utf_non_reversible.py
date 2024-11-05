@@ -226,9 +226,9 @@ def cli() -> None:
 
     parser = argparse.ArgumentParser(description="Replace LaTeX special characters with their Unicode equivalents.")
     parser.add_argument(
-        "-f", "--file", type=str, help="File containing LaTeX special characters to convert to Unicode."
+        "-f", "--file", type=str, help="Plain text file containing LaTeX special characters to convert to Unicode. Each line must be a separate LaTeX string.", required=True
     )
-    parser.add_argument("-e", "--encoding", type=str, help="Encoding of the file. 'utf-8' by default.", default="utf-8")
+    parser.add_argument("-e", "--encoding", type=str, help="Encoding of the file.", required=True)
 
     file = parser.parse_args().file
     encoding = parser.parse_args().encoding
