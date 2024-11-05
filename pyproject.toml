@@ -27,6 +27,7 @@ dependencies = [
   "python-dotenv",
   "beautifulsoup4",
   "TexSoup",
+  "pylatexenc"
 ]
 
 [project.optional-dependencies]
@@ -54,6 +55,8 @@ module = [
     "fuzzywuzzy",
     "TexSoup",
     "TexSoup.data",
+    "pylatexenc",
+    "pylatexenc.latex2text", 
 ]
 ignore_missing_imports = true
 

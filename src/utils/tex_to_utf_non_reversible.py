@@ -8,7 +8,14 @@ If after applying to a CSV it breaks, do the following, and open the CSV by stat
 sed 's/^"//;s/"$//' [FILE] | sed 's/.*/"&"/' > [OUTPUT_FILE]
 """
 
+from pylatexenc.latex2text import LatexNodes2Text
+
 import re
+
+from src.sdk.utils import get_logger, remove_extra_whitespace, lginf
+
+
+lgr = get_logger("TeX to UTF -- Non-Reversible Conversion")
 
 
 LATEX_TO_UNICODE_MAP = {
@@ -199,10 +206,12 @@ CLEANUP_MAP = {
     r'\""A': "Ä",  # in case csv delimiter is " itself
     r'\""E': "Ë",  # in case csv delimiter is " itself
     r'\""I': "Ï",  # in case csv delimiter is " itself
+    r"\emph": "",
+    r"\,": ""
+
 }
 
-
-def tex2utc(text: str) -> str:
+def tex2utf_naive(text: str) -> str:
     """
     Replace LaTeX special characters with their Unicode equivalents.
     """
@@ -216,6 +225,16 @@ def tex2utc(text: str) -> str:
     line = " ".join(text.split())
 
     return line
+
+def tex2utf_external(latex_input: str) -> str:
+    """
+    Replace LaTeX special characters with their Unicode equivalents using the pylatexenc library.
+    """
+    latex_input = LatexNodes2Text().latex_to_text(latex_input)
+
+    stripped = remove_extra_whitespace(latex_input)
+
+    return stripped
 
 
 def cli() -> None:
@@ -233,12 +252,21 @@ def cli() -> None:
     file = parser.parse_args().file
     encoding = parser.parse_args().encoding
 
+    frame = "cli"
+
     with open(file, "r", encoding=encoding) as f:
+
+        lginf(frame, f"Reading file '{file}'", lgr)
         text = f.read()
         lines = text.splitlines()
-        processed_lines = [tex2utc(line) for line in lines]
+
+        lginf(frame, f"Processing {len(lines)} lines", lgr)
+        processed_lines = [tex2utf_external(line) for line in lines]
+
+        lginf(frame, "Joining the output", lgr)
         result = "\n".join(processed_lines)
 
+        lginf(frame, "Writing the output to stdout", lgr)
         print(result)
 
 
