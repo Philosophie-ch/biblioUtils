@@ -3,9 +3,8 @@ from typing import Literal, TypeAlias
 
 from src.sdk.ResultMonad import Err, Ok
 
-
 @dataclass
-class INBibEntry:
+class BaseBibEntry:
     id: str
     bibkey: str
     title: str
@@ -15,7 +14,12 @@ class INBibEntry:
 
 
 @dataclass
-class ParsedBibEntry(INBibEntry):
+class CSVBibEntry(BaseBibEntry):
+    pass
+
+
+@dataclass
+class ParsedBibEntry(BaseBibEntry):
     further_references_raw: list[str]
     depends_on_raw: list[str]
     status: Literal["success", "error"]
@@ -23,7 +27,7 @@ class ParsedBibEntry(INBibEntry):
 
 
 @dataclass
-class ProcessedBibEntry(INBibEntry):
+class ProcessedBibEntry(BaseBibEntry):
     further_references_good: str
     further_references_bad: str
     depends_on_good: str
@@ -43,7 +47,6 @@ CitetField: TypeAlias = Literal[
     "crossref",
     "further_note",
 ]
-
 
 @dataclass
 class CitetResults:
