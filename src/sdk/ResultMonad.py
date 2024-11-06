@@ -158,17 +158,17 @@ def try_except_wrapper(logger: Logger) -> Callable[[Callable[..., T]], Callable[
         @wraps(func)
         def wrapper(*args: Any, **kwargs: Any) -> Ok[T] | Err:
             try:
-                logger.debug(f"Calling function '{func.__name__}' with args: {args} and kwargs: {kwargs}")
+                # logger.debug(f"Calling function '{func.__name__}' with args: {args} and kwargs: {kwargs}")
                 result = func(*args, **kwargs)
 
                 match result:
                     case Err(message=msg, code=code):
                         return result
                     case Ok():
-                        logger.debug(f"Function '{func.__name__}' executed successfully.")
+                        # logger.debug(f"Function '{func.__name__}' executed successfully.")
                         return result
                     case _:
-                        logger.debug(f"Function '{func.__name__}' executed successfully.")
+                        # logger.debug(f"Function '{func.__name__}' executed successfully.")
                         return Ok(out=result)
 
             except Exception as e:

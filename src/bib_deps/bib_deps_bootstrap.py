@@ -1,14 +1,16 @@
+from datetime import datetime
+from typing import Callable
 from TexSoup import TexSoup
 from TexSoup.data import TexNode, BraceGroup
 import csv
 
 from src.bib_deps.csv_repository import load_bibentries_csv
-from src.bib_deps.models import BaseBibEntry, CitetResults, CSVBibEntry, CitetField, ParsedBibEntry, ProcessedBibEntry
-from src.sdk.ResultMonad import Err, runwrap, try_except_wrapper
-from src.sdk.utils import get_logger, remove_extra_whitespace
+from src.bib_deps.models import BaseBibEntry, CitetResults, CitetField, ParsedBibEntry, ProcessedBibEntry
+from src.sdk.ResultMonad import Err, Ok, rbind, runwrap, try_except_wrapper
+from src.sdk.utils import get_logger, lginf, remove_extra_whitespace
 
 
-lgr = get_logger("Biblio Dependencies")
+lgr = get_logger("Biblio Dependencies -- Bootstrap")
 
 
 @try_except_wrapper(lgr)
@@ -30,7 +32,6 @@ def get_citet_bibkeys(base_bibentry: BaseBibEntry, citet_field: CitetField) -> l
     return citets_s_flat
 
 
-@try_except_wrapper(lgr)
 def parse_bibentry(base_bibentry: BaseBibEntry) -> ParsedBibEntry:
     error_messages = []
 
@@ -56,7 +57,9 @@ def parse_bibentry(base_bibentry: BaseBibEntry) -> ParsedBibEntry:
         else:
             depends_on_raw += getattr(citet_results, field).out
 
-    crossrefs_parsed = [remove_extra_whitespace(cr) for cr in base_bibentry.crossref.split(",")] if base_bibentry.crossref else []
+    crossrefs_parsed = (
+        [remove_extra_whitespace(cr) for cr in base_bibentry.crossref.split(",")] if base_bibentry.crossref else []
+    )
 
     depends_on_raw += crossrefs_parsed
 
@@ -87,7 +90,6 @@ def parse_bibentry(base_bibentry: BaseBibEntry) -> ParsedBibEntry:
     )
 
 
-@try_except_wrapper(lgr)
 def get_all_bibkeys(all_in_bibentries: list[BaseBibEntry]) -> list[str]:
 
     all_bibkeys = [row.bibkey for row in all_in_bibentries]
@@ -95,7 +97,6 @@ def get_all_bibkeys(all_in_bibentries: list[BaseBibEntry]) -> list[str]:
     return all_bibkeys
 
 
-@try_except_wrapper(lgr)
 def process_bibentry(parsed_bibentry: ParsedBibEntry, all_bibkeys_list: list[str]) -> ProcessedBibEntry:
     further_refs = (
         (bibkey, 0) if bibkey in all_bibkeys_list else (bibkey, 1) for bibkey in parsed_bibentry.further_references_raw
@@ -125,42 +126,55 @@ def process_bibentry(parsed_bibentry: ParsedBibEntry, all_bibkeys_list: list[str
     )
 
 
-@try_except_wrapper(lgr)
-def bib_deps_bootstrap_pipe(base_bibentry: BaseBibEntry, all_bibkeys_list: list[str]) -> ProcessedBibEntry:
-    
-    parsed_bibentry = parse_bibentry(base_bibentry)
-    processed_bibentry = runwrap(process_bibentry(parsed_bibentry, all_bibkeys_list))
+def bib_deps_bootstrap_pipe(
+    base_bibentry: BaseBibEntry,
+    all_bibkeys_list: list[str],
+    process_bibentry_curried: Callable[[ParsedBibEntry], ProcessedBibEntry],
+) -> ProcessedBibEntry:
 
-    return processed_bibentry
-
+    lgr.debug(f"Processing bibentry '{base_bibentry.bibkey}'")
+    return process_bibentry_curried(parse_bibentry(base_bibentry))
 
 
 @try_except_wrapper(lgr)
 def main_bootstrap(filename: str, encoding: str, output_filename: str) -> None:
 
-    lgr.info(f"Loading bibentries from '{filename}' [1/5]")
+    frame = "main_bootstrap"
+    start_datetime = datetime.now()
+    lginf(frame, f"Started at {start_datetime}", lgr)
+
+    lginf(frame, f"Loading bibentries from '{filename}' [1/5]", lgr)
     rows = runwrap(load_bibentries_csv(filename, encoding))
 
-    lgr.info("Getting all bibkeys in the file [2/5]")
+    lginf(frame, "Getting all bibkeys in the file [2/5]", lgr)
     all_bibkeys = get_all_bibkeys(rows)
 
-    lgr.info("Processing the entries [3/5]")
-    processed_rows = (runwrap(bib_deps_bootstrap_pipe(row, all_bibkeys)) for row in rows)
+    lginf(frame, "Processing the entries [3/5]", lgr)
+    process_bibentry_curried: Callable[[ParsedBibEntry], ProcessedBibEntry] = lambda x: process_bibentry(x, all_bibkeys)
+    processed_rows = (bib_deps_bootstrap_pipe(row, all_bibkeys, process_bibentry_curried) for row in rows)
 
-    lgr.info(f"Writing the output to '{output_filename}' [5/5]")
-    fieldnames = list(CSVBibEntry.__annotations__.keys()) + list(ProcessedBibEntry.__annotations__.keys())
+    lginf(frame, f"Getting fieldnames for final CSV [4/5]", lgr)
+    fieldnames = list(BaseBibEntry.__annotations__.keys()) + list(ProcessedBibEntry.__annotations__.keys())
 
+    lginf(frame, f"Writing the output to '{output_filename}' [5/5]", lgr)
     with open(output_filename, 'w', encoding=encoding) as f:
         writer = csv.DictWriter(f, fieldnames=fieldnames)
         writer.writeheader()
-        writer.writerows((row.dict_dump() for row in processed_rows))
+        writer.writerows(row.dict_dump() for row in processed_rows)
 
-    lgr.info(f"Success! Processed {len(rows)} entries. Report written to the file below ↴\n\t{output_filename}")
+    end_datetime = datetime.now()
+    total_time = end_datetime - start_datetime
+
+    lginf(
+        frame,
+        f"Success! Processed {len(rows)} entries. Finished at {end_datetime}. Total time: {total_time}. Report written to the file below ↴\n\t{output_filename}",
+        lgr,
+    )
 
     return None
 
 
-def cli_main() -> None:
+def cli_main_bootstrap() -> None:
     import argparse
 
     parser = argparse.ArgumentParser(description="Process a CSV file with BibTeX entries")
@@ -183,4 +197,4 @@ def cli_main() -> None:
 
 
 if __name__ == "__main__":
-    cli_main()
+    cli_main_bootstrap()

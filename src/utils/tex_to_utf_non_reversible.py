@@ -207,9 +207,9 @@ CLEANUP_MAP = {
     r'\""E': "Ë",  # in case csv delimiter is " itself
     r'\""I': "Ï",  # in case csv delimiter is " itself
     r"\emph": "",
-    r"\,": ""
-
+    r"\,": "",
 }
+
 
 def tex2utf_naive(text: str) -> str:
     """
@@ -225,6 +225,7 @@ def tex2utf_naive(text: str) -> str:
     line = " ".join(text.split())
 
     return line
+
 
 def tex2utf_external(latex_input: str) -> str:
     """
@@ -245,7 +246,11 @@ def cli() -> None:
 
     parser = argparse.ArgumentParser(description="Replace LaTeX special characters with their Unicode equivalents.")
     parser.add_argument(
-        "-f", "--file", type=str, help="Plain text file containing LaTeX special characters to convert to Unicode. Each line must be a separate LaTeX string.", required=True
+        "-f",
+        "--file",
+        type=str,
+        help="Plain text file containing LaTeX special characters to convert to Unicode. Each line must be a separate LaTeX string.",
+        required=True,
     )
     parser.add_argument("-e", "--encoding", type=str, help="Encoding of the file.", required=True)
 
