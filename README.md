@@ -10,6 +10,18 @@ source .venv/bin/activate
 pip install .[dev]
 ```
 
+Then, this project contains some custom made Rust crates that are used as python libraries, using the python package `maturin` with the `pyo3` backend.
+To build the Rust library, you need to have Rust installed on your machine, then run the following:
+
+```bash
+cd rust_crate
+maturin build --release
+```
+
+This will install the Rust library in the virtual environment, which allows it to be used as any other Python library.
+It is a typed library (see `rust_crate/rust_crate.pyi`), so it doesn't conflict with the `mypy` static type checker.
+
+
 ### Typing, Tests, Formatting
 
 To assure the quality of your code, please run the following commands before pushing your changes.
