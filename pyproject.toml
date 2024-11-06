@@ -7,7 +7,7 @@ packages = ["src"]
 
 [project]
 name = "biblioUtils"
-description = "Utility scripts for the management of the bibliography of Philosophie.ch"
+description = "Utilities for the management and improvement of the bibliography of Philosophie.ch"
 version = "2024.0.1"
 requires-python = ">=3.11.0"
 readme = "README.md"
@@ -27,7 +27,8 @@ dependencies = [
   "python-dotenv",
   "beautifulsoup4",
   "TexSoup",
-  "pylatexenc"
+  "pylatexenc",
+  "maturin"
 ]
 
 [project.optional-dependencies]
