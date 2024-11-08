@@ -56,13 +56,17 @@ class CitetResults:
 
 
 @dataclass
-class TransitivelyClosedBibEntry(BaseBibEntry):
+class PyTransitivelyClosedBibEntry:
+    id: str
+    bibkey: str
+    title: str
+    notes: str
+    crossref: str
+    further_note: str
     further_references: str
     depends_on: str
     further_references_closed: str
     depends_on_closed: str
-    status: Status
-    error_message: str = ""
-
-    def dict_dump(self) -> dict[str, str]:
-        return asdict(self)
+    max_depth_reached: int
+    status: str
+    error_message: str

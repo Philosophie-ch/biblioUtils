@@ -1,95 +1,19 @@
 import csv
 from datetime import datetime
-from typing import Callable, Generator
-from rust_crate import RustedBibEntry, compute_transitive_closures
+from typing import Callable
+from rust_crate import (
+    RustedBibEntry,
+    find_all_repeated_bibentries,
+    compute_transitive_closures,
+)
 
 from src.bib_deps.bib_deps_bootstrap import bib_deps_bootstrap_pipe, get_all_bibkeys, process_bibentry
 from src.bib_deps.csv_repository import load_bibentries_csv
 from src.sdk.ResultMonad import runwrap, try_except_wrapper
-from src.bib_deps.models import BaseBibEntry, ParsedBibEntry, ProcessedBibEntry, TransitivelyClosedBibEntry, Status
+from src.bib_deps.models import ParsedBibEntry, ProcessedBibEntry, PyTransitivelyClosedBibEntry
 from src.sdk.utils import get_logger, lginf
 
 lgr = get_logger("Biblio Dependencies -- Recursive")
-
-MAX_DEPTH = 10
-
-
-@try_except_wrapper(lgr)
-def rusted_bib_entry_generator(entries: list[RustedBibEntry]) -> Generator[TransitivelyClosedBibEntry, None, None]:
-    """
-    A Python generator that yields RustedBibEntry objects one at a time,
-    where each entry has the computed closures (further_references_closed, depends_on_closed). Uses the `compute_transitive_closures` implemented in Rust for better performance.
-    """
-    frame = "rusted_bib_entry_generator"
-    lginf(frame, f"Processing {len(entries)} entries", lgr)
-    # Prepare entries as a dictionary for the Rust function
-    entries_dict = {entry.bibkey: entry for entry in entries}
-
-    lginf(frame, "Computing transitive closures", lgr)
-    # Call the Rust function to get the computed closures (two dictionaries)
-    further_references_memo, depends_on_memo = compute_transitive_closures(entries_dict, MAX_DEPTH)
-
-    lginf(frame, "Success! Now yielding entries with closures", lgr)
-    # Yield each entry one by one, with closures filled in
-    for entry in entries:
-        try:
-            bibkey = entry.bibkey
-            # Look up the closures for this entry using its bibkey
-            further_references_closed = further_references_memo.get(bibkey, set())
-            depends_on_closed = depends_on_memo.get(bibkey, set())
-
-            further_references_closed_circularity_flag = False
-            depends_on_closed_circularity_flag = False
-
-            if bibkey in further_references_closed:
-                lgr.warning(f"Entry '{bibkey}' has a circular reference in 'further_references'.")
-                further_references_closed_circularity_flag = True
-
-            if bibkey in depends_on_closed:
-                lgr.warning(f"Entry '{bibkey}' has a circular reference in 'depends_on'.")
-                depends_on_closed_circularity_flag = True
-
-            circularity_flag = further_references_closed_circularity_flag or depends_on_closed_circularity_flag
-
-            match circularity_flag:
-                case True:
-                    status: Status = "warning"
-                    error_message = f"Circular reference detected.\nFor 'further_references', circular reference is {further_references_closed_circularity_flag}\nFor 'depends_on', circular reference is: {depends_on_closed_circularity_flag}"
-                case False:
-                    status = "success"
-                    error_message = ""
-
-            # Yield the entry with its closures
-            yield TransitivelyClosedBibEntry(
-                id=entry.id,
-                bibkey=entry.bibkey,
-                title=entry.title,
-                notes=entry.notes,
-                crossref=entry.crossref,
-                further_note=entry.further_note,
-                further_references=",".join(entry.further_references),
-                depends_on=",".join(entry.depends_on),
-                further_references_closed=",".join(list(filter(None, further_references_closed))),
-                depends_on_closed=",".join(list(filter(None, depends_on_closed))),
-                status=status,
-                error_message=error_message,
-            )
-        except Exception as e:
-            lgr.error(f"Error processing entry '{entry.bibkey}': {e}")
-            yield TransitivelyClosedBibEntry(
-                id=entry.id,
-                bibkey=entry.bibkey,
-                title=entry.title,
-                notes=entry.notes,
-                crossref=entry.crossref,
-                further_note=entry.further_note,
-                further_references=",".join(entry.further_references),
-                depends_on=",".join(entry.depends_on),
-                further_references_closed="",
-                depends_on_closed="",
-                status="error",
-                error_message=str(e),
-            )
 
 
 @try_except_wrapper(lgr)
@@ -97,45 +21,55 @@ def main_recursive(filename: str, encoding: str, output_filename: str) -> None:
 
     frame = "main_recursive"
     start_datetime = datetime.now()
+    ns = 7  # number of steps
     lginf(frame, f"Started at {start_datetime}", lgr)
 
-    lginf(frame, f"Loading bibentries from '{filename}' [1/5]", lgr)
+    lginf(frame, f"Loading bibentries from '{filename}' [1/{ns}]", lgr)
     rows = runwrap(load_bibentries_csv(filename, encoding))
 
-    lginf(frame, "Getting all bibkeys in the file [2/5]", lgr)
+    lginf(frame, f"Getting all bibkeys in the file [2/{ns}]", lgr)
     all_bibkeys = get_all_bibkeys(rows)
 
-    lginf(frame, "Processing the entries [3/5]", lgr)
+    lginf(frame, f"Bootstrapping the entries [3/{ns}]", lgr)
     process_bibentry_curried: Callable[[ParsedBibEntry], ProcessedBibEntry] = lambda x: process_bibentry(x, all_bibkeys)
     processed_rows = (bib_deps_bootstrap_pipe(row, all_bibkeys, process_bibentry_curried) for row in rows)
 
-    lginf(frame, "Computing transitive closures [4/5]", lgr)
-    bibentries_with_closures = runwrap(
-        rusted_bib_entry_generator(
-            [
-                RustedBibEntry(
-                    id=row.id,
-                    bibkey=row.bibkey,
-                    title=row.title,
-                    notes=row.notes,
-                    crossref=row.crossref,
-                    further_note=row.further_note,
-                    further_references=row.further_references_good.split(","),
-                    depends_on=row.depends_on_good.split(","),
-                )
-                for row in processed_rows
-            ]
+    rusted_bibentries = [
+        RustedBibEntry(
+            id=row.id,
+            bibkey=row.bibkey,
+            title=row.title,
+            notes=row.notes,
+            crossref=row.crossref,
+            further_note=row.further_note,
+            further_references=row.further_references_good.split(","),
+            depends_on=row.depends_on_good.split(","),
         )
-    )
+        for row in processed_rows
+    ]
 
-    lginf(frame, f"Getting fieldnames for final CSV", lgr)
-    fieldnames = list(BaseBibEntry.__annotations__.keys()) + list(TransitivelyClosedBibEntry.__annotations__.keys())
+    lginf(frame, f"Finding all repeated bibentries [4/{ns}]", lgr)
 
-    lginf(frame, f"Writing the output to '{output_filename}' [5/5]", lgr)
+    if repeated_bibentries := find_all_repeated_bibentries(rusted_bibentries):
+        error_msg = f"Found {len(repeated_bibentries)} repeated bibentries. Exiting..."
+        lgr.error(error_msg)
+        buffer = [error_msg]
+        buffer.extend(f"{entry.bibkey}" for entry in repeated_bibentries)
+        with open(f"{output_filename}_error.txt", "w") as f:
+            f.write("\n".join(buffer))
+        return None
+
+    lginf(frame, f"Computing transitive closures [5/{ns}]", lgr)
+    bibentries_with_closures = compute_transitive_closures(rusted_bibentries)
+
+    lginf(frame, f"Getting fieldnames for final CSV [6/{ns}]", lgr)
+    fieldnames = list(PyTransitivelyClosedBibEntry.__annotations__.keys())
+
+    lginf(frame, f"Writing the output to '{output_filename}' [7/{ns}]", lgr)
     with open(output_filename, "w", newline="") as csvfile:
-        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+        writer = csv.DictWriter(csvfile, fieldnames=fieldnames, delimiter="\t")
         writer.writeheader()
-        writer.writerows(entry.dict_dump() for entry in bibentries_with_closures)
+        writer.writerows(entry.to_dict() for entry in bibentries_with_closures)
 
     end_datetime = datetime.now()
     total_time = end_datetime - start_datetime
