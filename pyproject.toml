@@ -8,8 +8,8 @@ packages = ["src"]
 [project]
 name = "biblioUtils"
 description = "Utilities for the management and improvement of the bibliography of Philosophie.ch"
-version = "2024.0.1"
-requires-python = ">=3.11.0"
+version = "2024.1.0"
+requires-python = ">=3.13"
 readme = "README.md"
 authors = [
   {name = "Luis Bordo", email = "luis.bordo@philosophie.ch"},
@@ -19,8 +19,8 @@ maintainers = [
 ]
 
 dependencies = [
-  "titlecase>=2.4,<3.0",
-  "pydantic>=2.7,<3.0",
+  "titlecase",
+  "pydantic",
   "requests", 
   "fuzzywuzzy",
   "python-Levenshtein",
@@ -28,21 +28,22 @@ dependencies = [
   "beautifulsoup4",
   "TexSoup",
   "pylatexenc",
-  "maturin"
+  "maturin",
+  "mistune"
 ]
 
 [project.optional-dependencies]
 dev = [
-    "pytest>=8.1,<9.0",
-    "mypy>=1.10,<2.0",
-    "black>=24.4,<25.0",
+    "pytest",
+    "mypy",
+    "black",
     "black[jupyter]",
     "jupyter",
     "types-beautifulsoup4",
 ]
 
 [tool.mypy]
-python_version = "3.11"
+python_version = "3.13"
 strict = true
 explicit_package_bases = true
 exclude = [
@@ -69,7 +70,7 @@ pythonpath = ["."]
 
 [tool.black]
 line-length = 120
-target-version = ['py311']
+target-version = ['py313']
 include = '\.pyi?$'
 skip-string-normalization = true
 # 'extend-exclude' excludes files or directories in addition to the defaults
