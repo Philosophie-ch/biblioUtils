@@ -8,7 +8,7 @@ from rust_crate import (
 )
 
 from src.bib_deps.bib_deps_bootstrap import bib_deps_bootstrap_pipe, get_all_bibkeys, process_bibentry
-from src.bib_deps.csv_repository import load_bibentries_csv
+from src.bib_deps.data_repository import load_bibentries
 from src.sdk.ResultMonad import runwrap, try_except_wrapper
 from src.bib_deps.models import ParsedBibEntry, ProcessedBibEntry, PyTransitivelyClosedBibEntry
 from src.sdk.utils import get_logger, lginf
@@ -17,7 +17,7 @@ lgr = get_logger("Biblio Dependencies -- Recursive")
 
 
 @try_except_wrapper(lgr)
-def main_recursive(filename: str, encoding: str, output_filename: str) -> None:
+def main_recursive(filename: str, encoding: str | None, output_filename: str) -> None:
 
     frame = "main_recursive"
     start_datetime = datetime.now()
@@ -25,7 +25,7 @@ def main_recursive(filename: str, encoding: str, output_filename: str) -> None:
     lginf(frame, f"Started at {start_datetime}", lgr)
 
     lginf(frame, f"Loading bibentries from '{filename}' [1/{ns}]", lgr)
-    rows = runwrap(load_bibentries_csv(filename, encoding))
+    rows = runwrap(load_bibentries(filename, encoding))
 
     lginf(frame, f"Getting all bibkeys in the file [2/{ns}]", lgr)
     all_bibkeys = get_all_bibkeys(rows)
@@ -36,7 +36,6 @@ def main_recursive(filename: str, encoding: str, output_filename: str) -> None:
 
     rusted_bibentries = [
         RustedBibEntry(
-            id=row.id,
             bibkey=row.bibkey,
             title=row.title,
             notes=row.notes,
@@ -92,11 +91,11 @@ def cli_main() -> None:
         "-i",
         "--input-csv",
         type=str,
-        help="The CSV file to process. Needs to have the following columns: 'id', 'bibkey', 'title', 'notes', 'crossref', 'further_note'.",
+        help="The file with the data to process. Needs to be either a CSV or an ODS with the following columns: 'bibkey', 'title', 'notes', 'crossref', 'further_note'. If passing a CSV, please also provide the encoding of the file.",
         required=True,
     )
 
-    parser.add_argument("-e", "--encoding", type=str, help="The encoding of the CSV file.", required=True)
+    parser.add_argument("-e", "--encoding", type=str, help="The encoding of the CSV file.", required=False)
 
     parser.add_argument("-o", "--output-filename", type=str, help="The output CSV file.", required=True)
 

@@ -6,7 +6,6 @@ def sum_as_string(a: int, b: int) -> str:
     """
 
 class RustedBibEntry:
-    id: str
     bibkey: str
     title: str
     notes: str
@@ -17,7 +16,6 @@ class RustedBibEntry:
 
     def __new__(
         cls,
-        id: str,
         bibkey: str,
         title: str,
         notes: str,
@@ -29,7 +27,6 @@ class RustedBibEntry:
     def __str__(self) -> str: ...
 
 class TransitivelyClosedBibEntry:
-    id: str
     bibkey: str
     title: str
     notes: str
@@ -45,7 +42,6 @@ class TransitivelyClosedBibEntry:
 
     def __new__(
         cls,
-        id: str,
         bibkey: str,
         title: str,
         notes: str,

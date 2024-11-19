@@ -37,7 +37,6 @@ pub fn t_close(
         Some(entry) => *entry,
         None => {
             return TransitivelyClosedBibEntry {
-                id: "missing".to_string(),
                 bibkey: bibkey.to_string(),
                 title: "missing".to_string(),
                 notes: "missing".to_string(),
@@ -114,7 +113,6 @@ pub fn t_close(
 
     // Create the closure entry
     let closed_entry = TransitivelyClosedBibEntry {
-        id: bibentry.id.clone(),
         bibkey: bibentry.bibkey.clone(),
         title: bibentry.title.clone(),
         notes: bibentry.notes.clone(),
@@ -165,7 +163,6 @@ fn create_rusted_bibentry(
     depends_on: Vec<&str>,
 ) -> RustedBibEntry {
     RustedBibEntry {
-        id: bibkey.to_string(),
         bibkey: bibkey.to_string(),
         title: bibkey.to_string(),
         notes: bibkey.to_string(),

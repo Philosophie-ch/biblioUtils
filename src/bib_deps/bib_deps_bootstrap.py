@@ -4,7 +4,7 @@ from TexSoup import TexSoup
 from TexSoup.data import TexNode, BraceGroup
 import csv
 
-from src.bib_deps.csv_repository import load_bibentries_csv
+from src.bib_deps.data_repository import load_bibentries
 from src.bib_deps.models import BaseBibEntry, CitetResults, CitetField, ParsedBibEntry, ProcessedBibEntry
 from src.sdk.ResultMonad import Err, Ok, rbind, runwrap, try_except_wrapper
 from src.sdk.utils import get_logger, lginf, remove_extra_whitespace
@@ -65,7 +65,6 @@ def parse_bibentry(base_bibentry: BaseBibEntry) -> ParsedBibEntry:
 
     if error_messages != []:
         return ParsedBibEntry(
-            id=base_bibentry.id,
             bibkey=base_bibentry.bibkey,
             title=base_bibentry.title,
             notes=base_bibentry.notes,
@@ -78,7 +77,6 @@ def parse_bibentry(base_bibentry: BaseBibEntry) -> ParsedBibEntry:
         )
 
     return ParsedBibEntry(
-        id=base_bibentry.id,
         bibkey=base_bibentry.bibkey,
         title=base_bibentry.title,
         notes=base_bibentry.notes,
@@ -111,7 +109,6 @@ def process_bibentry(parsed_bibentry: ParsedBibEntry, all_bibkeys_list: list[str
     depends_on_bad = [bibkey for bibkey, status in depends_on if status == 1]
 
     return ProcessedBibEntry(
-        id=parsed_bibentry.id,
         bibkey=parsed_bibentry.bibkey,
         title=parsed_bibentry.title,
         notes=parsed_bibentry.notes,
@@ -137,14 +134,14 @@ def bib_deps_bootstrap_pipe(
 
 
 @try_except_wrapper(lgr)
-def main_bootstrap(filename: str, encoding: str, output_filename: str) -> None:
+def main_bootstrap(filename: str, encoding: str | None, output_filename: str) -> None:
 
     frame = "main_bootstrap"
     start_datetime = datetime.now()
     lginf(frame, f"Started at {start_datetime}", lgr)
 
     lginf(frame, f"Loading bibentries from '{filename}' [1/5]", lgr)
-    rows = runwrap(load_bibentries_csv(filename, encoding))
+    rows = runwrap(load_bibentries(filename, encoding))
 
     lginf(frame, "Getting all bibkeys in the file [2/5]", lgr)
     all_bibkeys = get_all_bibkeys(rows)
@@ -183,11 +180,11 @@ def cli_main_bootstrap() -> None:
         "-i",
         "--input-csv",
         type=str,
-        help="The CSV file to process. Needs to have the following columns: 'id', 'bibkey', 'title', 'notes', 'crossref', 'further_note'.",
+        help="The CSV file to process. Needs to have the following columns: 'bibkey', 'title', 'notes', 'crossref', 'further_note'.",
         required=True,
     )
 
-    parser.add_argument("-e", "--encoding", type=str, help="The encoding of the CSV file.", required=True)
+    parser.add_argument("-e", "--encoding", type=str, help="The encoding of the CSV file.", required=False)
 
     parser.add_argument("-o", "--output-filename", type=str, help="The output CSV file.", required=True)
 

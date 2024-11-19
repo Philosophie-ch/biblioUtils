@@ -8,8 +8,6 @@ pub type Bibkey = String;
 #[derive(Debug, Clone)]
 pub struct RustedBibEntry {
     #[pyo3(get)]
-    pub id: String,
-    #[pyo3(get)]
     pub bibkey: Bibkey,
     #[pyo3(get)]
     pub title: String,
@@ -29,7 +27,6 @@ pub struct RustedBibEntry {
 impl RustedBibEntry {
     #[new]
     fn new(
-        id: String,
         bibkey: Bibkey,
         title: String,
         notes: String,
@@ -39,7 +36,6 @@ impl RustedBibEntry {
         depends_on: Vec<String>,
     ) -> Self {
         RustedBibEntry {
-            id,
             bibkey,
             title,
             notes,
@@ -52,8 +48,8 @@ impl RustedBibEntry {
 
     fn __str__(&self) -> String {
         format!(
-            "RustedBibEntry(id={}, bibkey={}, further_references={:?}, depends_on={:?})",
-            self.id, self.bibkey, self.further_references, self.depends_on
+            "RustedBibEntry(bibkey={}, further_references={:?}, depends_on={:?})",
+            self.bibkey, self.further_references, self.depends_on
         )
     }
 }
@@ -61,8 +57,6 @@ impl RustedBibEntry {
 #[pyclass]
 #[derive(Debug, Clone)]
 pub struct TransitivelyClosedBibEntry {
-    #[pyo3(get)]
-    pub id: String,
     #[pyo3(get)]
     pub bibkey: Bibkey,
     #[pyo3(get)]
@@ -93,7 +87,6 @@ pub struct TransitivelyClosedBibEntry {
 impl TransitivelyClosedBibEntry {
     #[new]
     fn new(
-        id: String,
         bibkey: Bibkey,
         title: String,
         notes: String,
@@ -108,7 +101,6 @@ impl TransitivelyClosedBibEntry {
         error_message: String,
     ) -> Self {
         TransitivelyClosedBibEntry {
-            id,
             bibkey,
             title,
             notes,
@@ -126,14 +118,13 @@ impl TransitivelyClosedBibEntry {
 
     fn __str__(&self) -> String {
         format!(
-            "TransitivelyClosedBibEntry(id={}, bibkey={}, further_references={:?}, depends_on={:?})",
-            self.id, self.bibkey, self.further_references, self.depends_on
+            "TransitivelyClosedBibEntry(bibkey={}, further_references={:?}, depends_on={:?})",
+            self.bibkey, self.further_references, self.depends_on
         )
     }
 
     fn to_dict(&self) -> PyResult<HashMap<String, String>> {
         let mut dict = HashMap::new();
-        dict.insert("id".to_string(), self.id.clone());
         dict.insert("bibkey".to_string(), self.bibkey.clone());
         dict.insert("title".to_string(), self.title.clone());
         dict.insert("notes".to_string(), self.notes.clone());

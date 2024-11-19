@@ -1,12 +1,11 @@
-from dataclasses import asdict, dataclass
-from typing import Literal, Set, TypeAlias
+from dataclasses import dataclass
+from typing import Literal
 
 from src.sdk.ResultMonad import Err, Ok
 
 
-@dataclass
+@dataclass(slots=True, frozen=True)
 class BaseBibEntry:
-    id: str
     bibkey: str
     title: str
     notes: str
@@ -17,10 +16,10 @@ class BaseBibEntry:
         return self.__dict__
 
 
-Status: TypeAlias = Literal["success", "warning", "error"]
+type Status = Literal["success", "warning", "error"]
 
 
-@dataclass
+@dataclass(slots=True, frozen=True)
 class ParsedBibEntry(BaseBibEntry):
     further_references_raw: list[str]
     depends_on_raw: list[str]
@@ -28,7 +27,7 @@ class ParsedBibEntry(BaseBibEntry):
     error_message: str = ""
 
 
-@dataclass
+@dataclass(slots=True, frozen=True)
 class ProcessedBibEntry(BaseBibEntry):
     further_references_good: str
     further_references_bad: str
@@ -38,7 +37,7 @@ class ProcessedBibEntry(BaseBibEntry):
     error_message: str = ""
 
 
-CitetField: TypeAlias = Literal[
+type CitetField = Literal[
     # For further_references
     "title",
     "notes",
@@ -48,16 +47,15 @@ CitetField: TypeAlias = Literal[
 ]
 
 
-@dataclass
+@dataclass(slots=True, frozen=True)
 class CitetResults:
     notes: Ok[list[str]] | Err
     title: Ok[list[str]] | Err
     further_note: Ok[list[str]] | Err
 
 
-@dataclass
+@dataclass(slots=True, frozen=True)
 class PyTransitivelyClosedBibEntry:
-    id: str
     bibkey: str
     title: str
     notes: str
