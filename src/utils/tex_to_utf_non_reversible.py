@@ -8,9 +8,11 @@ If after applying to a CSV it breaks, do the following, and open the CSV by stat
 sed 's/^"//;s/"$//' [FILE] | sed 's/.*/"&"/' > [OUTPUT_FILE]
 """
 
-from pylatexenc.latex2text import LatexNodes2Text
+import polars as pl
 
-import re
+from pathlib import Path
+from typing import Generator, Tuple
+from pylatexenc.latex2text import LatexNodes2Text
 
 from src.sdk.utils import get_logger, remove_extra_whitespace, lginf
 
@@ -238,6 +240,65 @@ def tex2utf_external(latex_input: str) -> str:
     return stripped
 
 
+type TReadInput = Tuple[
+    Generator[str, None, None],  # lines
+    int,  # number of lines
+]
+
+
+def read_input_file(file: str, encoding: str | None, column: str | None) -> TReadInput:
+    """
+    Read the input file and return a generator of lines.
+    """
+
+    path = Path(file)
+
+    if not path.exists():
+        raise FileNotFoundError("The input file does not exist.")
+
+    extension = path.suffix
+
+    match (extension, encoding, column):
+        case (".txt", encoding, None) if isinstance(encoding, str):
+            with open(file, "r", encoding=encoding) as f:
+                text = f.read()
+                lines = text.splitlines()
+
+        case (".ods", _, column) if isinstance(column, str):
+            df = pl.read_ods(file, has_header=True)
+            lines = df[column].to_list()
+
+        case _:
+            raise ValueError(
+                "The input file must be a .txt or .ods file. For a .txt file, the encoding must be specified. For a .ods file, the column name must be specified."
+            )
+
+    result = (line for line in lines), len(lines)
+    return result
+
+
+def main(file: str, encoding: str | None, column: str | None) -> str:
+    try:
+        frame = "main"
+
+        lginf(frame, f"Reading file '{file}'", lgr)
+
+        lines, num_lines = read_input_file(file, encoding, column)
+
+        lginf(frame, f"Processing {num_lines} lines", lgr)
+        processed_lines = (tex2utf_external(line) for line in lines)
+
+        lginf(frame, "Joining the output", lgr)
+
+        result = "\n".join(processed_lines)
+
+        return result
+
+    except Exception as e:
+        lgr.error(f"Unexpected error: {e}")
+        return f"Unexpected error: {e}"
+
+
 def cli() -> None:
     """
     Command line interface for the tex2utc function.
@@ -249,30 +310,23 @@ def cli() -> None:
         "-f",
         "--file",
         type=str,
-        help="Plain text file containing LaTeX special characters to convert to Unicode. Each line must be a separate LaTeX string.",
+        help="File containing LaTeX special characters to convert to Unicode. Supported formats: .txt (each line is a LaTeX string); .ods (will need a column name passed as a parameter).",
         required=True,
     )
-    parser.add_argument("-e", "--encoding", type=str, help="Encoding of the file.", required=True)
+    parser.add_argument("-e", "--encoding", type=str, help="Encoding of the file.", required=False)
+
+    parser.add_argument(
+        "-c", "--column", type=str, help="Column name in the .ods file to convert to Unicode.", required=False
+    )
 
     file = parser.parse_args().file
     encoding = parser.parse_args().encoding
+    column = parser.parse_args().column
 
     frame = "cli"
-
-    with open(file, "r", encoding=encoding) as f:
-
-        lginf(frame, f"Reading file '{file}'", lgr)
-        text = f.read()
-        lines = text.splitlines()
-
-        lginf(frame, f"Processing {len(lines)} lines", lgr)
-        processed_lines = [tex2utf_external(line) for line in lines]
-
-        lginf(frame, "Joining the output", lgr)
-        result = "\n".join(processed_lines)
-
-        lginf(frame, "Writing the output to stdout", lgr)
-        print(result)
+    result = main(file, encoding, column)
+    lginf(frame, "Writing the output to stdout", lgr)
+    print(result)
 
 
 if __name__ == "__main__":
