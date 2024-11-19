@@ -114,7 +114,6 @@ def main(input_file: str, replacement_table_file: str, column_name: str, encodin
                         replaced_nameblocks.append("")
                         not_found_nameblocks.append("")
 
-
             raw_nameblocks_replaced = nameblock_formatter(replaced_nameblocks)
             replaced_nameblocks_buffer.append(f"{raw_nameblocks_replaced}\t{' -- '.join(not_found_nameblocks)}")
 
