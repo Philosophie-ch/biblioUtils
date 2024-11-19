@@ -29,7 +29,9 @@ dependencies = [
   "TexSoup",
   "pylatexenc",
   "maturin",
-  "mistune"
+  "mistune",
+  "polars",
+  "fastexcel",
 ]
 
 [project.optional-dependencies]
