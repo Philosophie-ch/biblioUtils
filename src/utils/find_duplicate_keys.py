@@ -58,12 +58,7 @@ def find_duplicates(bibkeys: TBibkeys) -> TDuplicates | None:
             counts[bibkey] = [idx]
 
     # Identify duplicates
-    duplicates = tuple(
-        (bibkey, idx)
-        for bibkey, indices in counts.items()
-        if len(indices) > 1
-        for idx in indices
-    )
+    duplicates = tuple((bibkey, idx) for bibkey, indices in counts.items() if len(indices) > 1 for idx in indices)
 
     return duplicates if duplicates else None
 
