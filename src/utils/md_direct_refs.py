@@ -73,7 +73,7 @@ def get_citations(text_bits: tuple[str], citation_pattern: re.Pattern[str]) -> s
 
     return set(citations)
 
-    
+
 def is_non_key(k: str) -> bool:
     no_colon = not ":" in k
     is_section = k.lower().startswith("sec:") or "-sec:" in k
@@ -87,7 +87,22 @@ def is_non_key(k: str) -> bool:
     is_rem = k.lower().startswith("rem:")
     is_proposition = k.lower().startswith("prop:")
 
-    return any((no_colon, is_section, is_definition, is_figure, is_lemma, is_theorem, is_equation, is_statement, is_table, is_rem, is_proposition))
+    return any(
+        (
+            no_colon,
+            is_section,
+            is_definition,
+            is_figure,
+            is_lemma,
+            is_theorem,
+            is_equation,
+            is_statement,
+            is_table,
+            is_rem,
+            is_proposition,
+        )
+    )
+
 
 def key_cleaner(k: str) -> str:
     key = k
@@ -97,11 +112,11 @@ def key_cleaner(k: str) -> str:
 
     # Remove triple dashes and anything that comes after them, if any
     if "---" in key:
-        key = key[:key.find("---")]
-    
+        key = key[: key.find("---")]
+
     # Remove double dashes and anything that comes after them, if any
     if "--" in key:
-        key = key[:key.find("--")]
+        key = key[: key.find("--")]
 
     # Remove trailing dots, if any
     if key.endswith("."):
@@ -114,8 +129,9 @@ def key_cleaner(k: str) -> str:
     # Remove colons at the beginning of the key, if any
     if key.startswith(":"):
         key = key[1:]
-    
+
     return key
+
 
 def get_keys(citations: set[str]) -> tuple[set[str], set[str]]:
 
@@ -190,13 +206,13 @@ def write_output_csv(
 ) -> None:
 
     with open(output_path, "w", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=["bibkey", "direct_refs", "bibkey_not_in_bibfile", "non_bibkey"])
+        writer = csv.DictWriter(f, fieldnames=["bibkey", "direct_references", "bibkey_not_in_bibfile", "non_bibkey"])
 
         writer.writeheader()
         writer.writerows(
             {
                 "bibkey": bibkey,
-                "direct_refs": ", ".join(direct_refs),
+                "direct_references": ", ".join(direct_refs),
                 "bibkey_not_in_bibfile": ", ".join(bibkey_not_in_bibfile),
                 "non_bibkey": ", ".join(non_bibkey),
             }
@@ -235,15 +251,15 @@ def main(bibliography_file: str, root_dir: str, output_file: str) -> None:
     lgr.info(f"Looking for markdown files in '{root_dir}'...")
     all_markdown_files = list(root_path.rglob("*.md"))
     lgr.info(f"Found {len(all_markdown_files)} markdown files.")
-    #lgr.info(
-        #f"Printing up to the first 10 markdown files: {tuple(zip(
-        #tuple(f.name for f in all_markdown_files[:10]),
-        #tuple(f.stem for f in all_markdown_files[:10]),
-    #))}"
-    #)
+    # lgr.info(
+    # f"Printing up to the first 10 markdown files: {tuple(zip(
+    # tuple(f.name for f in all_markdown_files[:10]),
+    # tuple(f.stem for f in all_markdown_files[:10]),
+    # ))}"
+    # )
     markdown_files = [f for f in all_markdown_files if gen_dltc_filename(f) in all_bibkeys]
     lgr.info(f"Found {len(markdown_files)} markdown articles.")
-    #lgr.info(f"Printing the markdown files found: {tuple(f.stem for f in markdown_files)}")
+    # lgr.info(f"Printing the markdown files found: {tuple(f.stem for f in markdown_files)}")
 
     if len(markdown_files) == 0:
         raise ValueError("No markdown files found.")
