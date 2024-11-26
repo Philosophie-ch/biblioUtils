@@ -6,7 +6,7 @@ import csv
 import polars as pl
 from pathlib import Path
 
-from typing import Dict, Generator, NamedTuple, Tuple, List, TypedDict
+from typing import Dict, Generator, NamedTuple, Set, Tuple, List, TypedDict
 from src.sdk.ResultMonad import runwrap, try_except_wrapper
 from src.sdk.utils import get_logger, remove_extra_whitespace
 
@@ -17,7 +17,7 @@ lgr = get_logger("Closed Dependencies Lookup")
 type BibentryWithReferences = Tuple[
     # This comes from either (a) the markdown parser to get direct references; or (b) manual compilation in pages in portal data
     str,  # bibkey
-    List[str],  #  direct_references
+    Set[str],  #  direct_references
 ]
 
 type LoadOutput = Tuple[
@@ -36,7 +36,7 @@ def load_bibentries_csv(filename: str, encoding: str) -> LoadOutput:
         rows = tuple(
             (
                 f"{row['bibkey']}",
-                [remove_extra_whitespace(f"{bibkey}") for bibkey in row['direct_references'].split(",")],
+                {remove_extra_whitespace(f"{bibkey}") for bibkey in row['direct_references'].split(",")},
             )
             for row in csv_reader
         )
@@ -56,7 +56,7 @@ def load_bibentries_ods(filename: str) -> LoadOutput:
     rows = tuple(
         (
             f"{bibkey}",
-            [remove_extra_whitespace(f"{bibkey}") for bibkey in bibkeys_to_lookup.split(",")],
+            {remove_extra_whitespace(f"{bibkey}") for bibkey in bibkeys_to_lookup.split(",")},
         )
         for bibkey, bibkeys_to_lookup in zip(
             df['bibkey'].to_list(),
@@ -141,9 +141,9 @@ def load_lookup_hashmap(filename: str) -> LookupHashmap:
 type ReferencesDependencies = Tuple[
     # This goes to the pages spreadsheet in 'portal data'
     str,  # bibkey
-    List[str],  # direct_references
-    List[str],  # references further_references
-    List[str],  # references depends_on
+    Set[str],  # direct_references
+    Set[str],  # references further_references
+    Set[str],  # references depends_on
 ]
 
 
@@ -157,8 +157,8 @@ def find_pages_references(
 
     main_bibkey, references = bibentry_with_references
 
-    if references == [""]:
-        references = []
+    if references == {""}:
+        references = set()
 
     result_nested = [hashmap[reference] for reference in references]
 
@@ -166,9 +166,9 @@ def find_pages_references(
 
     references_depends_on_nested = (tup[1] for tup in result_nested)
 
-    references_further_references = [ref for refs in references_further_references_nested for ref in refs]
+    references_further_references = {ref for refs in references_further_references_nested for ref in refs}
 
-    references_depends_on = [ref for refs in references_depends_on_nested for ref in refs]
+    references_depends_on = {ref for refs in references_depends_on_nested for ref in refs}
 
     return main_bibkey, references, references_further_references, references_depends_on
 
@@ -204,9 +204,9 @@ def main(
             csv_writer.writerow(
                 [
                     bibkey,
-                    ", ".join(direct_references),
-                    ", ".join(references_further_references),
-                    ", ".join(references_depends_on),
+                    ", ".join(sorted(direct_references)),
+                    ", ".join(sorted(references_further_references)),
+                    ", ".join(sorted(references_depends_on)),
                 ]
             )
 
