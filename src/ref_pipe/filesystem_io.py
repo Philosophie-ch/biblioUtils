@@ -1,5 +1,6 @@
 import csv
 import os
+from typing import FrozenSet
 from src.sdk.ResultMonad import Err, Ok, runwrap, runwrap_or, try_except_wrapper
 from src.sdk.utils import get_logger, lginf, remove_extra_whitespace
 from src.ref_pipe.models import BibEntity, TMDReport, THTMLReport
@@ -9,9 +10,12 @@ lgr = get_logger("Filesystem I/O")
 
 
 @try_except_wrapper(lgr)
-def parse_bibkeys(bibkeys_s: str) -> list[str]:
+def parse_bibkeys(bibkeys_s: str) -> FrozenSet[str]:
 
-    return [remove_extra_whitespace(k) for k in bibkeys_s.split(",")]
+    if bibkeys_s is None or bibkeys_s == "":
+        return frozenset()
+
+    return frozenset({remove_extra_whitespace(k) for k in bibkeys_s.split(",")})
 
 
 @try_except_wrapper(lgr)
@@ -27,7 +31,7 @@ def load_bibentities_csv(input_file: str, encoding: str) -> tuple[BibEntity, ...
     with open(input_file, "r", encoding=encoding) as f:
         reader = csv.DictReader(f)
 
-        required_columns = ["id", "entity_key", "biblio_keys", "biblio_dependencies_keys"]
+        required_columns = ["id", "entity_key", "main_bibkeys", "further_references", "depends_on"]
 
         if reader.fieldnames is None or not all(col in reader.fieldnames for col in required_columns):
             msg = f"The CSV file needs to have a header row with at least the following columns:\n\t{', '.join(required_columns)}."
@@ -35,18 +39,28 @@ def load_bibentities_csv(input_file: str, encoding: str) -> tuple[BibEntity, ...
 
         rows = tuple(reader)  # Read all rows into memory
 
-    output = tuple(
-        BibEntity(
-            id=row["id"],
-            entity_key=row["entity_key"],
-            biblio_keys=runwrap(parse_bibkeys(row["biblio_keys"])),
-            biblio_keys_further_references=runwrap_or(parse_bibkeys(row["biblio_keys_further_references"]), []),
-            biblio_dependencies_keys=runwrap_or(parse_bibkeys(row["biblio_dependencies_keys"]), []),
-        )
-        for row in rows
-    )
+    output_l: list[BibEntity] = []
+    for row in rows:
+        # Sanitize inputs
+        main_bibkeys = runwrap(parse_bibkeys(row["main_bibkeys"]))
+        further_references_raw = runwrap_or(parse_bibkeys(row["further_references"]), frozenset())
+        dependends_on_raw = runwrap_or(parse_bibkeys(row["depends_on"]), frozenset())
 
-    return output
+        # Force uniqueness to prevent unnecessary processing
+        further_references = further_references_raw - main_bibkeys
+        dependends_on = dependends_on_raw - main_bibkeys
+
+        output_l.append(
+            BibEntity(
+                id=f"{row['id']}",
+                entity_key=f"{row['entity_key']}",
+                main_bibkeys=main_bibkeys,
+                further_references=further_references,
+                dependends_on=dependends_on,
+            )
+        )
+
+    return tuple(output_l)
 
 
 @try_except_wrapper(lgr)
@@ -64,9 +78,9 @@ def generate_report(main_output: TMDReport | THTMLReport, output_folder: str, en
             [
                 "id",
                 "entity_key",
-                "biblio_keys",
-                "biblio_keys_further_references",
-                "biblio_dependencies_keys",
+                "main_bibkeys",
+                "further_references",
+                "depends_on",
                 "status",
                 "error_message",
                 "model_dump",
@@ -94,9 +108,9 @@ def generate_report(main_output: TMDReport | THTMLReport, output_folder: str, en
                 [
                     entity.id,
                     entity.entity_key,
-                    entity.biblio_keys,
-                    ",".join(entity.biblio_keys_further_references),
-                    ",".join(entity.biblio_dependencies_keys),
+                    entity.main_bibkeys,
+                    ",".join(entity.further_references),
+                    ",".join(entity.dependends_on),
                     status,
                     err_msg,
                     dump,

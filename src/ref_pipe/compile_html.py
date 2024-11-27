@@ -94,11 +94,11 @@ def process_raw_html(bibentity: BibEntityWithRawHTML) -> BibEntityWithHTML:
         # 1. Parse the raw HTML content with BeautifulSoup
         soup = BeautifulSoup(raw_html_content, features="html.parser")
         divs_all = soup.find_all('div')
-        divs = [div for div in divs_all if isinstance(div, Tag)]
+        divs = tuple(div for div in divs_all if isinstance(div, Tag))
 
-        bibkeys = bibentity.biblio_keys
-        bibfurther = bibentity.biblio_keys_further_references
-        bibdeps = bibentity.biblio_dependencies_keys
+        bibkeys = bibentity.main_bibkeys
+        bibfurther = bibentity.further_references
+        bibdeps = bibentity.dependends_on
 
         # 2. Filter the divs by the bibkeys
         bibkeys_div = runwrap(filter_divs(divs, bibkeys))
@@ -117,7 +117,7 @@ def process_raw_html(bibentity: BibEntityWithRawHTML) -> BibEntityWithHTML:
             raise FileNotFoundError(msg)
 
         # 3. Branches for further references and dependencies
-        if bibfurther != []:
+        if bibfurther != frozenset():
             bibfurther_div = runwrap(filter_divs(divs, bibfurther))
             further_references_filename = f"{local_output_directory}/{bibentity.entity_key}_further_references.html"
 
@@ -131,7 +131,7 @@ def process_raw_html(bibentity: BibEntityWithRawHTML) -> BibEntityWithHTML:
         else:
             further_references_filename = None
 
-        if bibdeps != []:
+        if bibdeps != frozenset():
             bibdeps_div = runwrap(filter_divs(divs, bibdeps))
             dependencies_filename = f"{local_output_directory}/{bibentity.entity_key}_dependencies.html"
 

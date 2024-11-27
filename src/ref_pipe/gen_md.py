@@ -35,7 +35,7 @@ def prepare_md(
     bibentity: BibEntity, local_base_dir: str, container_base_dir: str, relative_output_dir: str
 ) -> BibEntityWithMD:
 
-    biblio_keys = bibentity.biblio_keys
+    biblio_keys = bibentity.main_bibkeys
 
     biblio_keys_str = "\n\n".join([f"@{key}" for key in biblio_keys])
 
@@ -56,9 +56,9 @@ def prepare_md(
     bibentity_with_md = BibEntityWithMD(
         id=bibentity.id,
         entity_key=bibentity.entity_key,
-        biblio_keys=bibentity.biblio_keys,
-        biblio_keys_further_references=bibentity.biblio_keys_further_references,
-        biblio_dependencies_keys=bibentity.biblio_dependencies_keys,
+        main_bibkeys=bibentity.main_bibkeys,
+        further_references=bibentity.further_references,
+        dependends_on=bibentity.dependends_on,
         markdown=md,
     )
 

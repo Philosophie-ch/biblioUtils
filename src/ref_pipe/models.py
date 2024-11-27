@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 import os
-from typing import Iterator, List
+from typing import FrozenSet, Iterator
 
 from src.sdk.ResultMonad import Err, Ok
 
@@ -49,21 +49,34 @@ class EnvVars:
 class BibEntity:
     """
     Bibliographic entity. Can be a profile, or an article.
+
+    Attributes:
+    ----------
+    `id`: str
+        ID in the database.
+    `entity_key`: str
+        biblio_name for profiles, bibkey for articles.
+    `main_bibkeys`: set[str]
+        Entries directly written by the author, or direct references made by an article.
+    `biblio_keys_further_references`: set[str]
+        Entries referred to by the main_bibkeys.
+    `biblio_dependencies_keys`: set[str]
+        Entries that are dependencies of the main_bibkeys.
     """
 
-    id: str  # ID in the CSV file
-    entity_key: str  # biblio_name for profiles, bibkey for articles
-    biblio_keys: List[str]
-    biblio_keys_further_references: List[str]
-    biblio_dependencies_keys: List[str]
+    id: str
+    entity_key: str
+    main_bibkeys: FrozenSet[str]
+    further_references: FrozenSet[str]
+    dependends_on: FrozenSet[str]
 
     def dump(self) -> dict[str, str]:
         return {
             "id": f"{self.id}",
-            "key": f"{self.entity_key}",
-            "biblio_keys": f"{self.biblio_keys}",
-            "biblio_keys_further_references": f"{self.biblio_keys_further_references}",
-            "biblio_dependencies_keys": f"{self.biblio_dependencies_keys}",
+            "entity_key": f"{self.entity_key}",
+            "main_bibkeys": f"{self.main_bibkeys}",
+            "further_references": f"{self.further_references}",
+            "depends_on": f"{self.dependends_on}",
         }
 
 

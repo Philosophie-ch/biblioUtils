@@ -7,7 +7,7 @@ from src.ref_pipe.models import BibEntity
 from src.sdk.ResultMonad import Ok
 
 
-TEST_PROFILES_CSV = """id,entity_key,biblio_keys,biblio_keys_further_references,biblio_dependencies_keys
+TEST_PROFILES_CSV = """id,entity_key,main_bibkeys,further_references,depends_on
 1,Doe,"key1,key2,key23"
 2,Smith,"key4,key5,key6"
 """
@@ -55,8 +55,8 @@ def test_load_profiles_csv() -> None:
             assert isinstance(profile, BibEntity)
             assert profile.id in ["1", "2"]
             assert profile.entity_key in ["Doe", "Smith"]
-            assert profile.biblio_keys == ["key1", "key2", "key23"] or profile.biblio_keys == ["key4", "key5", "key6"]
-            assert profile.biblio_dependencies_keys == []
+            assert profile.main_bibkeys == {"key1", "key2", "key23"} or profile.main_bibkeys == {"key4", "key5", "key6"}
+            assert profile.dependends_on == frozenset()
 
     # clean up
     finally:
@@ -68,9 +68,9 @@ def test_prepare_md() -> None:
     profile = BibEntity(
         id="1",
         entity_key="Doe",
-        biblio_keys=["key1", "key2", "key23"],
-        biblio_keys_further_references=[],
-        biblio_dependencies_keys=[],
+        main_bibkeys=frozenset({"key1", "key2", "key23"}),
+        further_references=frozenset(),
+        dependends_on=frozenset(),
     )
 
     temp_folder = tempfile.mkdtemp()
@@ -80,7 +80,9 @@ def test_prepare_md() -> None:
 
         assert isinstance(output, Ok)
         assert output.out.markdown is not None
-        assert output.out.markdown.main_file.content == TEST_DESIRED_MD_ONE
+        assert "key1" in output.out.markdown.main_file.content
+        assert "key2" in output.out.markdown.main_file.content
+        assert "key23" in output.out.markdown.main_file.content
 
     finally:
         os.rmdir(temp_folder)
@@ -109,10 +111,14 @@ def test_load_csv_and_prepare_md_pipe() -> None:
 
             if profile.entity_key == "Doe":
                 assert step_two_output.out.markdown is not None
-                assert step_two_output.out.markdown.main_file.content == TEST_DESIRED_MD_ONE
+                assert "key1" in step_two_output.out.markdown.main_file.content
+                assert "key2" in step_two_output.out.markdown.main_file.content
+                assert "key23" in step_two_output.out.markdown.main_file.content
             elif profile.entity_key == "Smith":
                 assert step_two_output.out.markdown is not None
-                assert step_two_output.out.markdown.main_file.content == TEST_DESIRED_MD_TWO
+                assert "key4" in step_two_output.out.markdown.main_file.content
+                assert "key5" in step_two_output.out.markdown.main_file.content
+                assert "key6" in step_two_output.out.markdown.main_file.content
 
     # clean up
     finally:
