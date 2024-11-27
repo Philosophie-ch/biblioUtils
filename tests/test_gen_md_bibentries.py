@@ -1,15 +1,15 @@
 import tempfile
 import os
 
-from src.ref_pipe.filesystem_io import load_profiles_csv
+from src.ref_pipe.filesystem_io import load_bibentities_csv
 from src.ref_pipe import gen_md as mdbib
-from src.ref_pipe.models import Profile
+from src.ref_pipe.models import BibEntity
 from src.sdk.ResultMonad import Ok
 
 
-TEST_PROFILES_CSV = """id,lastname,_biblio_name,biblio_keys,biblio_keys_further_references,biblio_dependencies_keys
-1,Doe,,"key1,key2,key23"
-2,Smith,,"key4,key5,key6"
+TEST_PROFILES_CSV = """id,entity_key,biblio_keys,biblio_keys_further_references,biblio_dependencies_keys
+1,Doe,"key1,key2,key23"
+2,Smith,"key4,key5,key6"
 """
 
 TEST_DESIRED_MD_ONE = """---
@@ -48,13 +48,13 @@ def test_load_profiles_csv() -> None:
         temp_file_name = f.name
 
     try:
-        output = load_profiles_csv(temp_file_name, "utf-8")
+        output = load_bibentities_csv(temp_file_name, "utf-8")
 
         assert isinstance(output, Ok)
         for profile in output.out:
-            assert isinstance(profile, Profile)
+            assert isinstance(profile, BibEntity)
             assert profile.id in ["1", "2"]
-            assert profile.lastname in ["Doe", "Smith"]
+            assert profile.entity_key in ["Doe", "Smith"]
             assert profile.biblio_keys == ["key1", "key2", "key23"] or profile.biblio_keys == ["key4", "key5", "key6"]
             assert profile.biblio_dependencies_keys == []
 
@@ -65,10 +65,9 @@ def test_load_profiles_csv() -> None:
 
 def test_prepare_md() -> None:
 
-    profile = Profile(
+    profile = BibEntity(
         id="1",
-        lastname="Doe",
-        biblio_name="",
+        entity_key="Doe",
         biblio_keys=["key1", "key2", "key23"],
         biblio_keys_further_references=[],
         biblio_dependencies_keys=[],
@@ -96,7 +95,7 @@ def test_load_csv_and_prepare_md_pipe() -> None:
     try:
         temp_folder = tempfile.mkdtemp()
 
-        step_one_output = load_profiles_csv(temp_file_name, "utf-8")
+        step_one_output = load_bibentities_csv(temp_file_name, "utf-8")
 
         assert isinstance(step_one_output, Ok)
 
@@ -108,10 +107,10 @@ def test_load_csv_and_prepare_md_pipe() -> None:
 
             assert isinstance(step_two_output, Ok)
 
-            if profile.lastname == "Doe":
+            if profile.entity_key == "Doe":
                 assert step_two_output.out.markdown is not None
                 assert step_two_output.out.markdown.main_file.content == TEST_DESIRED_MD_ONE
-            elif profile.lastname == "Smith":
+            elif profile.entity_key == "Smith":
                 assert step_two_output.out.markdown is not None
                 assert step_two_output.out.markdown.main_file.content == TEST_DESIRED_MD_TWO
 

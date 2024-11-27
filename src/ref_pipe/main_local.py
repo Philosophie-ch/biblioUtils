@@ -2,12 +2,12 @@ import os
 from typing import Callable
 from src.ref_pipe.compile_html import dltc_env_exec, process_raw_html
 from src.ref_pipe.gen_md import prepare_md, write_md_files
-from src.ref_pipe.models import Profile, ProfileWithHTML, THTMLReport
+from src.ref_pipe.models import BibEntity, BibEntityWithHTML, THTMLReport
 from src.sdk.utils import get_logger
 from src.sdk.ResultMonad import Err, Ok, rbind, runwrap, try_except_wrapper
 
 from src.ref_pipe.setup import dltc_env_up, load_env_vars
-from src.ref_pipe.filesystem_io import generate_report, load_profiles_csv
+from src.ref_pipe.filesystem_io import generate_report, load_bibentities_csv
 
 
 lgr = get_logger("Main Local")
@@ -15,8 +15,8 @@ lgr = get_logger("Main Local")
 
 @try_except_wrapper(lgr)
 def ref_pipe(
-    profile: Profile, local_base_dir: str, container_base_dir: str, relative_output_dir: str, container_name: str
-) -> ProfileWithHTML:
+    profile: BibEntity, local_base_dir: str, container_base_dir: str, relative_output_dir: str, container_name: str
+) -> BibEntityWithHTML:
 
     # 1. Prepare and write MD files
     profile_with_mds = runwrap(
@@ -59,7 +59,7 @@ def main_process_local(input_csv: str, encoding: str, env_file: str) -> THTMLRep
 
     ## 1.3 Load profiles
     profiles = runwrap(
-        load_profiles_csv(input_csv, encoding)
+        load_bibentities_csv(input_csv, encoding)
     )  # TODO: abstract away from CSV in particular, inject from outside
 
     ## 1.4 Unpack environment variables for ref_pipe

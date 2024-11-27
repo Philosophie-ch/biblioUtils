@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 import os
-from typing import Iterator, List, TypeAlias
+from typing import Iterator, List
 
 from src.sdk.ResultMonad import Err, Ok
 
@@ -46,16 +46,25 @@ class EnvVars:
 
 
 @dataclass(frozen=True, slots=True)
-class Profile:
-    id: str
-    lastname: str
-    biblio_name: str
+class BibEntity:
+    """
+    Bibliographic entity. Can be a profile, or an article.
+    """
+
+    id: str  # ID in the CSV file
+    entity_key: str  # biblio_name for profiles, bibkey for articles
     biblio_keys: List[str]
     biblio_keys_further_references: List[str]
     biblio_dependencies_keys: List[str]
 
-    def dump(self) -> str:
-        return f"{self.__dict__}"
+    def dump(self) -> dict[str, str]:
+        return {
+            "id": f"{self.id}",
+            "key": f"{self.entity_key}",
+            "biblio_keys": f"{self.biblio_keys}",
+            "biblio_keys_further_references": f"{self.biblio_keys_further_references}",
+            "biblio_dependencies_keys": f"{self.biblio_dependencies_keys}",
+        }
 
 
 @dataclass(frozen=False, slots=True)
@@ -73,7 +82,7 @@ class File:
 @dataclass(frozen=True, slots=True)
 class Markdown:
     """
-    Markdown files for a profile.
+    Markdown files for a bibliographic entity.
 
     Attributes:
     ----------
@@ -97,12 +106,12 @@ class Markdown:
 
 
 @dataclass(frozen=True, slots=True)
-class ProfileWithMD(Profile):
+class BibEntityWithMD(BibEntity):
     markdown: Markdown
 
 
 @dataclass(frozen=True, slots=True)
-class ProfileWithRawHTML(ProfileWithMD):
+class BibEntityWithRawHTML(BibEntityWithMD):
     raw_html_filename: str
 
 
@@ -114,10 +123,10 @@ class RefHTML:
 
 
 @dataclass(frozen=True, slots=True)
-class ProfileWithHTML(ProfileWithRawHTML):
+class BibEntityWithHTML(BibEntityWithRawHTML):
     html: RefHTML
 
 
-type TMDReport = Iterator[tuple[Profile, Ok[ProfileWithMD] | Err]]
+type TMDReport = Iterator[tuple[BibEntity, Ok[BibEntityWithMD] | Err]]
 
-type THTMLReport = Iterator[tuple[Profile, Ok[ProfileWithHTML] | Err]]
+type THTMLReport = Iterator[tuple[BibEntity, Ok[BibEntityWithHTML] | Err]]

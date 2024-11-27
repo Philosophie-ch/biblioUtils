@@ -2,7 +2,7 @@ import os
 
 from src.sdk.utils import get_logger
 from src.sdk.ResultMonad import try_except_wrapper
-from src.ref_pipe.models import File, Profile, Markdown, ProfileWithMD
+from src.ref_pipe.models import File, BibEntity, Markdown, BibEntityWithMD
 
 
 lgr = get_logger("Generate Markdown")
@@ -32,15 +32,15 @@ first-page: 1
 
 @try_except_wrapper(lgr)
 def prepare_md(
-    profile: Profile, local_base_dir: str, container_base_dir: str, relative_output_dir: str
-) -> ProfileWithMD:
+    bibentity: BibEntity, local_base_dir: str, container_base_dir: str, relative_output_dir: str
+) -> BibEntityWithMD:
 
-    biblio_keys = profile.biblio_keys
+    biblio_keys = bibentity.biblio_keys
 
     biblio_keys_str = "\n\n".join([f"@{key}" for key in biblio_keys])
 
     main_content = MD_TEMPLATE.replace("~%~%~%PUT THE BIBKEYS HERE~%~%~%", biblio_keys_str)
-    main_md = File(content=main_content, basename=f"{profile.id}_{profile.lastname}.md")
+    main_md = File(content=main_content, basename=f"{bibentity.id}_{bibentity.entity_key}.md")
 
     master_content = MASTER_MD_TEMPLATE.replace("~%~%~%md_filename~%~%~%", main_md.basename)
     master_md = File(content=master_content, basename=f"master.md")
@@ -53,25 +53,24 @@ def prepare_md(
         master_file=master_md,
     )
 
-    profile_with_md = ProfileWithMD(
-        id=profile.id,
-        lastname=profile.lastname,
-        biblio_name=profile.biblio_name,
-        biblio_keys=profile.biblio_keys,
-        biblio_keys_further_references=profile.biblio_keys_further_references,
-        biblio_dependencies_keys=profile.biblio_dependencies_keys,
+    bibentity_with_md = BibEntityWithMD(
+        id=bibentity.id,
+        entity_key=bibentity.entity_key,
+        biblio_keys=bibentity.biblio_keys,
+        biblio_keys_further_references=bibentity.biblio_keys_further_references,
+        biblio_dependencies_keys=bibentity.biblio_dependencies_keys,
         markdown=md,
     )
 
-    return profile_with_md
+    return bibentity_with_md
 
 
 @try_except_wrapper(lgr)
-def write_md_files(profile: ProfileWithMD) -> ProfileWithMD:
-    md = profile.markdown
+def write_md_files(bibentity: BibEntityWithMD) -> BibEntityWithMD:
+    md = bibentity.markdown
 
     if not md:
-        raise ValueError(f"The markdown object for profile [[ {profile.id} -- {profile.lastname} ]] is missing.")
+        raise ValueError(f"The markdown object for [[ {bibentity.id} -- {bibentity.entity_key} ]] is missing.")
 
     output_local_dir = f"{md.local_base_dir}/{md.relative_output_dir}"
     if not os.path.exists(output_local_dir):
@@ -97,7 +96,7 @@ def write_md_files(profile: ProfileWithMD) -> ProfileWithMD:
         raise FileNotFoundError(f"The markdown file '{master_file_path}' was not written successfully.")
 
     # consume the contents to save memory
-    profile.markdown.main_file.content = ""
-    profile.markdown.master_file.content = ""
+    bibentity.markdown.main_file.content = ""
+    bibentity.markdown.master_file.content = ""
 
-    return profile
+    return bibentity
