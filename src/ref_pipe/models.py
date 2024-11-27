@@ -29,6 +29,8 @@ class EnvVars:
         Name of the container to run the commands in.
     `DOCKER_COMPOSE_FILE`: str
         Path to the Docker Compose file.
+    `CSL_FILE`: str
+        Path to the CSL file used to compile the HTML files.
     """
 
     ARCH: str
@@ -40,6 +42,7 @@ class EnvVars:
     REF_PIPE_DIR_RELATIVE_PATH: str
     CONTAINER_NAME: str
     DOCKER_COMPOSE_FILE: str
+    CSL_FILE: str
 
     @classmethod
     def attribute_names(self) -> str:

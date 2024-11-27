@@ -14,7 +14,7 @@ lgr = get_logger("Compile HTML")
 def dltc_env_exec(bibentity: BibEntityWithMD, container_name: str) -> BibEntityWithRawHTML:
 
     frame = f"dltc_env_exec"
-    lginf(frame, f"Preparing command to execute in the container...", lgr)
+    lginf(frame, f"{bibentity.entity_key} -- preparing compilation command to execute in the container...", lgr)
 
     container_base_dir = bibentity.markdown.container_base_dir
     relative_output_dir = bibentity.markdown.relative_output_dir

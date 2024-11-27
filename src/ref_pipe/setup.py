@@ -1,4 +1,6 @@
 import os
+from pathlib import Path
+import shutil
 import subprocess
 from dotenv import load_dotenv
 
@@ -27,6 +29,7 @@ def load_env_vars(env_file: str) -> EnvVars:
     ref_pipe_dir_relative_path = os.getenv("REF_PIPE_DIR_RELATIVE_PATH")
     container_name = os.getenv("CONTAINER_NAME")
     docker_compose_file = os.getenv("DOCKER_COMPOSE_FILE")
+    csl_file = os.getenv("CSL_FILE")
 
     if not (
         arch
@@ -38,6 +41,7 @@ def load_env_vars(env_file: str) -> EnvVars:
         and ref_pipe_dir_relative_path
         and container_name
         and docker_compose_file
+        and csl_file
     ):
         raise ValueError(
             f"The '.env' file must contain the following environment variables: {EnvVars.attribute_names()}."
@@ -80,6 +84,7 @@ def load_env_vars(env_file: str) -> EnvVars:
         REF_PIPE_DIR_RELATIVE_PATH=ref_pipe_dir_relative_path,
         CONTAINER_NAME=container_name,
         DOCKER_COMPOSE_FILE=docker_compose_file,
+        CSL_FILE=csl_file,
     )
 
 
@@ -183,3 +188,50 @@ if __name__ == "__main__":
         v=env_vars,
         compose_file=args.compose_file,
     )
+
+
+@try_except_wrapper(lgr)
+def override_csl_file(original_csl_file: str) -> None:
+    """
+    Override the CSL file with the one in the current directory.
+    """
+
+    path = Path(original_csl_file)
+    os.makedirs(path.parent, exist_ok=True)
+
+    if os.path.exists(original_csl_file):
+        shutil.move(original_csl_file, f"{original_csl_file}.bak")
+
+    cfp = Path(__file__)
+    current_file_dir = cfp.parent
+    csl_files = list(current_file_dir.glob("*.csl"))
+
+    if len(csl_files) == 0:
+        raise FileNotFoundError("No CSL files found in the current directory.")
+
+    if len(csl_files) > 1:
+        lgr.warning(
+            f"More than one CSL file found in the current directory: {csl_files}. Using the first one: '{csl_files[0]}'"
+        )
+
+    csl_file = csl_files[0]
+
+    with open(original_csl_file, "w") as f:
+        with open(csl_file, "r") as csl:
+            f.write(csl.read())
+
+
+@try_except_wrapper(lgr)
+def restore_csl_file(original_csl_file: str) -> None:
+    """
+    Cleans up the CSL file by restoring the original one.
+    """
+
+    if not os.path.exists(f"{original_csl_file}.bak"):
+        return None
+
+    if os.path.exists(original_csl_file):
+        os.remove(original_csl_file)
+
+    shutil.move(f"{original_csl_file}.bak", original_csl_file)
+
