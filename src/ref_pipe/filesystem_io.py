@@ -1,6 +1,7 @@
 import csv
 import os
-from typing import FrozenSet
+from pathlib import Path
+from typing import FrozenSet, Tuple
 from src.sdk.ResultMonad import Err, Ok, runwrap, runwrap_or, try_except_wrapper
 from src.sdk.utils import get_logger, lginf, remove_extra_whitespace, pretty_format_frozenset
 from src.ref_pipe.models import BibEntity, TMDReport, THTMLReport
@@ -18,8 +19,16 @@ def parse_bibkeys(bibkeys_s: str) -> FrozenSet[str]:
     return frozenset({remove_extra_whitespace(k) for k in bibkeys_s.split(",")})
 
 
-@try_except_wrapper(lgr)
-def load_bibentities_csv(input_file: str, encoding: str) -> tuple[BibEntity, ...]:
+type RawBibEntity = Tuple[
+    str,  # id
+    str,  # entity_key
+    FrozenSet[str],  # main_bibkeys
+    FrozenSet[str],  # further_references
+    FrozenSet[str],  # depends_on
+]
+
+
+def load_raw_bibentities_csv(input_file: str, encoding: str) -> list[RawBibEntity]: 
 
     frame = f"load_bibentities_csv"
     lginf(frame, f"Reading CSV file '{input_file}' with encoding '{encoding}'...", lgr)
@@ -39,28 +48,77 @@ def load_bibentities_csv(input_file: str, encoding: str) -> tuple[BibEntity, ...
 
         rows = tuple(reader)  # Read all rows into memory
 
-    output_l: list[BibEntity] = []
+    output: list[RawBibEntity] = []
     for row in rows:
         # Sanitize inputs
         main_bibkeys = runwrap(parse_bibkeys(row["main_bibkeys"]))
         further_references_raw = runwrap_or(parse_bibkeys(row["further_references"]), frozenset())
-        dependends_on_raw = runwrap_or(parse_bibkeys(row["depends_on"]), frozenset())
+        depends_on_raw = runwrap_or(parse_bibkeys(row["depends_on"]), frozenset())
 
-        # Force uniqueness to prevent unnecessary processing
-        further_references = further_references_raw - main_bibkeys
-        dependends_on = dependends_on_raw - main_bibkeys
-
-        output_l.append(
-            BibEntity(
-                id=f"{row['id']}",
-                entity_key=f"{row['entity_key']}",
-                main_bibkeys=main_bibkeys,
-                further_references=further_references,
-                dependends_on=dependends_on,
+        output.append(
+            (
+                f"{row['id']}",
+                f"{row['entity_key']}",
+                main_bibkeys,
+                further_references_raw,
+                depends_on_raw,
             )
         )
 
-    return tuple(output_l)
+    return output
+
+
+def process_raw_bibentity(raw_bibentity: RawBibEntity) -> BibEntity:
+    id, entity_key, main_bibkeys, further_references_raw, depends_on_raw = raw_bibentity
+
+    lgr.info(f"main_bibkeys: {pretty_format_frozenset(main_bibkeys)}")
+    lgr.info(f"further_references_raw: {pretty_format_frozenset(further_references_raw)}")
+    lgr.info(f"depends_on_raw: {pretty_format_frozenset(depends_on_raw)}")
+
+    # Force uniqueness of sets of bibkeys to prevent unnecessary processing
+    further_references = further_references_raw - main_bibkeys
+    _depends_on = depends_on_raw - main_bibkeys
+    depends_on = _depends_on - further_references
+
+    lgr.info(f"further_references: {pretty_format_frozenset(further_references)}")
+    lgr.info(f"depends_on: {pretty_format_frozenset(depends_on)}")
+
+    return BibEntity(
+        id=id,
+        entity_key=entity_key,
+        main_bibkeys=main_bibkeys,
+        further_references=further_references,
+        dependends_on=depends_on,
+    )
+
+
+@try_except_wrapper(lgr)
+def load_bibentities(input_file: str, encoding: str) -> tuple[BibEntity, ...]:
+
+    frame = f"load_bibentities"
+    lginf(frame, f"Reading input file '{input_file}'...", lgr)
+
+    input_path = Path(input_file)
+    if not input_path.exists():
+        msg = f"The input file '{input_file}' does not exist."
+        raise FileNotFoundError(msg)
+
+    extension = input_path.suffix    
+
+    match (extension, encoding):
+        case (".csv", _):
+            if encoding is None:
+                raise ValueError("The encoding must be specified for CSV files.")
+
+            raw_bibentities = load_raw_bibentities_csv(input_file, encoding)
+
+        case (_, _):
+            raise ValueError(f"Unsupported file extension '{extension}'.")
+
+
+    return tuple(
+        process_raw_bibentity(raw_bibentity) for raw_bibentity in raw_bibentities
+    )
 
 
 @try_except_wrapper(lgr)

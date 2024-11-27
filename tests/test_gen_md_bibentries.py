@@ -1,7 +1,7 @@
 import tempfile
 import os
 
-from src.ref_pipe.filesystem_io import load_bibentities_csv
+from src.ref_pipe.filesystem_io import load_bibentities
 from src.ref_pipe import gen_md as mdbib
 from src.ref_pipe.models import BibEntity
 from src.sdk.ResultMonad import Ok
@@ -48,7 +48,7 @@ def test_load_profiles_csv() -> None:
         temp_file_name = f.name
 
     try:
-        output = load_bibentities_csv(temp_file_name, "utf-8")
+        output = load_bibentities(temp_file_name, "utf-8")
 
         assert isinstance(output, Ok)
         for profile in output.out:
@@ -97,7 +97,7 @@ def test_load_csv_and_prepare_md_pipe() -> None:
     try:
         temp_folder = tempfile.mkdtemp()
 
-        step_one_output = load_bibentities_csv(temp_file_name, "utf-8")
+        step_one_output = load_bibentities(temp_file_name, "utf-8")
 
         assert isinstance(step_one_output, Ok)
 

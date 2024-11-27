@@ -1,5 +1,6 @@
 import os
 import subprocess
+from typing import Tuple
 from src.sdk.utils import lginf, get_logger
 from src.sdk.ResultMonad import runwrap, try_except_wrapper
 from src.ref_pipe.models import BibEntityWithHTML, BibEntityWithMD, BibEntityWithRawHTML, RefHTML
@@ -72,23 +73,44 @@ def dltc_env_exec(bibentity: BibEntityWithMD, container_name: str) -> BibEntityW
     )
 
 
+def get_bibkey_from_div_id(div_id: str) -> str:
+    """
+    Extract the bibkey from the div ID. WARNING: if the HTML structure changes, this function will produce nonsense and will need update.
+
+    This assumes IDs of the shape:
+    `ref-<entity_key>-<bibkey>`, where <bibkey> can contain "-"
+
+    For example:
+    ref-c1-ashby_n:2002
+    ref-c1-caruso_em-etal:2008
+    """
+    try:
+        bibkey = "-".join(div_id.split('-')[2:])
+    except IndexError:
+        lgr.warning(f"Could not find bibkey in div ID '{div_id}'")
+        bibkey = ""
+    
+    return bibkey
+
 @try_except_wrapper(lgr)
-def bs_get_id(page_element: Tag) -> str:
+def bs_get_div_bibkey(page_element: Tag) -> str:
     bs_getter = page_element.get('id')
     match bs_getter:
         case None:
             return ""
         case _:
-            return bs_getter.__str__()
-
+            return get_bibkey_from_div_id(bs_getter.__str__())
 
 @try_except_wrapper(lgr)
-def filter_divs(divs: list[Tag], bibkeys: list[str]) -> list[str]:
-    nested = [[div.__str__() for div in divs if bibkey in runwrap(bs_get_id(div))] for bibkey in bibkeys]
+def filter_divs(divs: list[Tag], bibkeys: list[str]) -> Tuple[str, ...]:
+    """
+    Filter BeautifulSoup divs by the bibkeys in their ids, while keeping the order of the original divs.
+    """
+    divs_and_bibkeys = ((div.__str__(), runwrap(bs_get_div_bibkey(div))) for div in divs)
 
-    flat = [div for sublist in nested for div in sublist]
+    filtered_divs = tuple(div for div, div_bibkey in divs_and_bibkeys if any(div_bibkey == bibkey for bibkey in bibkeys))
 
-    return flat
+    return filtered_divs
 
 
 @try_except_wrapper(lgr)
@@ -108,15 +130,14 @@ def process_raw_html(bibentity: BibEntityWithRawHTML, cleanup: bool = True) -> B
         with open(raw_html_filename, "r") as f:
             raw_html_content = f.read()
 
-        # 1. Parse the raw HTML content with BeautifulSoup
+        # 1. Parse the raw HTML content with BeautifulSoup and extract div Tag objects
         soup = BeautifulSoup(raw_html_content, features="html.parser")
         divs_all = soup.find_all('div')
         divs = tuple(div for div in divs_all if isinstance(div, Tag))
 
-        # Order the bibkeys, to get the HTML sorted
-        bibkeys = sorted(list(bibentity.main_bibkeys))
-        bibfurther = sorted(list(bibentity.further_references))
-        bibdeps = sorted(list(bibentity.dependends_on))
+        bibkeys = bibentity.main_bibkeys
+        bibfurther = bibentity.further_references
+        bibdeps = bibentity.dependends_on
 
         # 2. Filter the divs by the bibkeys
         bibkeys_div = runwrap(filter_divs(divs, bibkeys))
@@ -135,7 +156,7 @@ def process_raw_html(bibentity: BibEntityWithRawHTML, cleanup: bool = True) -> B
             raise FileNotFoundError(msg)
 
         # 3. Branches for further references and dependencies
-        if bibfurther != []:
+        if bibfurther != frozenset():
             bibfurther_div = runwrap(filter_divs(divs, bibfurther))
             further_references_filename = f"{local_output_directory}/{bibentity.entity_key}_further_references.html"
 
@@ -149,7 +170,7 @@ def process_raw_html(bibentity: BibEntityWithRawHTML, cleanup: bool = True) -> B
         else:
             further_references_filename = None
 
-        if bibdeps != []:
+        if bibdeps != frozenset():
             bibdeps_div = runwrap(filter_divs(divs, bibdeps))
             dependencies_filename = f"{local_output_directory}/{bibentity.entity_key}_dependencies.html"
 

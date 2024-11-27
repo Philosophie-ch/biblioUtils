@@ -7,7 +7,7 @@ from src.sdk.utils import get_logger
 from src.sdk.ResultMonad import Err, Ok, rbind, runwrap, try_except_wrapper
 
 from src.ref_pipe.setup import dltc_env_up, load_env_vars, override_csl_file, restore_csl_file
-from src.ref_pipe.filesystem_io import generate_report, load_bibentities_csv
+from src.ref_pipe.filesystem_io import generate_report, load_bibentities
 
 
 lgr = get_logger("Main Local")
@@ -72,7 +72,7 @@ def main_process_local(input_csv: str, encoding: str, env_file: str, cleanup: bo
 
     ## 1.4 Load the bibentities
     bibentities = runwrap(
-        load_bibentities_csv(input_csv, encoding)
+        load_bibentities(input_csv, encoding)
     )  # TODO: abstract away from CSV in particular, inject from outside
 
     ## 1.5 Unpack environment variables for ref_pipe

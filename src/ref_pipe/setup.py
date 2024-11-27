@@ -234,4 +234,3 @@ def restore_csl_file(original_csl_file: str) -> None:
         os.remove(original_csl_file)
 
     shutil.move(f"{original_csl_file}.bak", original_csl_file)
-

@@ -35,9 +35,9 @@ def prepare_md(
     bibentity: BibEntity, local_base_dir: str, container_base_dir: str, relative_output_dir: str
 ) -> BibEntityWithMD:
 
-    biblio_keys = bibentity.main_bibkeys
+    biblio_keys = sorted(bibentity.main_bibkeys | bibentity.further_references | bibentity.dependends_on)
 
-    biblio_keys_str = "\n\n".join([f"@{key}" for key in biblio_keys])
+    biblio_keys_str = "\n\n".join(tuple(f"@{key}" for key in biblio_keys))
 
     main_content = MD_TEMPLATE.replace("~%~%~%PUT THE BIBKEYS HERE~%~%~%", biblio_keys_str)
     main_md = File(content=main_content, basename=f"{bibentity.id}_{bibentity.entity_key}.md")
