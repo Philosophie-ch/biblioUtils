@@ -13,7 +13,13 @@ class BaseBibEntry:
     further_note: str
 
     def dict_dump(self) -> dict[str, str]:
-        return self.__dict__
+        return {
+            "bibkey": f"{self.bibkey}",
+            "title": f"{self.title}",
+            "notes": f"{self.notes}",
+            "crossref": f"{self.crossref}",
+            "further_note": f"{self.further_note}",
+        }
 
 
 type Status = Literal["success", "warning", "error"]
