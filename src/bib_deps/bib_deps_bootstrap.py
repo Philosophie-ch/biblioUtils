@@ -1,3 +1,8 @@
+"""
+This module contains the main functions to process a CSV file with BibTeX entries, and obtain the bootstrap wave of further_references and depends_on.
+This first wave is not transitively closed, though, so a further recursive step is needed to get the full dependencies.
+"""
+
 from datetime import datetime
 from typing import Callable
 from TexSoup import TexSoup

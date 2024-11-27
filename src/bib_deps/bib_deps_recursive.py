@@ -1,3 +1,8 @@
+"""
+This script processes a CSV file with BibTeX entries and computes the transitive closure of the dependencies between them.
+Uses the bootstrap wave of dependencies obtained in the first step, and a custom made Rust crate to compute the transitive closures.
+"""
+
 import csv
 from datetime import datetime
 from typing import Callable
