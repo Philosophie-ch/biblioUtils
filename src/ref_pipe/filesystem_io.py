@@ -2,7 +2,7 @@ import csv
 import os
 from typing import FrozenSet
 from src.sdk.ResultMonad import Err, Ok, runwrap, runwrap_or, try_except_wrapper
-from src.sdk.utils import get_logger, lginf, remove_extra_whitespace
+from src.sdk.utils import get_logger, lginf, remove_extra_whitespace, pretty_format_frozenset
 from src.ref_pipe.models import BibEntity, TMDReport, THTMLReport
 
 
@@ -108,9 +108,9 @@ def generate_report(main_output: TMDReport | THTMLReport, output_folder: str, en
                 [
                     entity.id,
                     entity.entity_key,
-                    entity.main_bibkeys,
-                    ",".join(entity.further_references),
-                    ",".join(entity.dependends_on),
+                    pretty_format_frozenset(entity.main_bibkeys),
+                    pretty_format_frozenset(entity.further_references),
+                    pretty_format_frozenset(entity.dependends_on),
                     status,
                     err_msg,
                     dump,

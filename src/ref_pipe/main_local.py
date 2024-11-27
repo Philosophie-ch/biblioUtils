@@ -2,7 +2,7 @@ import os
 from typing import Callable
 from src.ref_pipe.compile_html import dltc_env_exec, process_raw_html
 from src.ref_pipe.gen_md import prepare_md, write_md_files
-from src.ref_pipe.models import BibEntity, BibEntityWithHTML, THTMLReport
+from src.ref_pipe.models import BibEntity, BibEntityWithHTML, BibEntityWithRawHTML, THTMLReport
 from src.sdk.utils import get_logger
 from src.sdk.ResultMonad import Err, Ok, rbind, runwrap, try_except_wrapper
 
@@ -15,7 +15,7 @@ lgr = get_logger("Main Local")
 
 @try_except_wrapper(lgr)
 def ref_pipe(
-    bibentity: BibEntity, local_base_dir: str, container_base_dir: str, relative_output_dir: str, container_name: str
+    bibentity: BibEntity, local_base_dir: str, container_base_dir: str, relative_output_dir: str, container_name: str, cleanup: bool = True
 ) -> BibEntityWithHTML:
 
     # 1. Prepare and write MD files
@@ -24,31 +24,36 @@ def ref_pipe(
     )
 
     try:
+
+        type TProcessRaw = Callable[[BibEntityWithRawHTML], Ok[BibEntityWithHTML] | Err]
+        process_raw_curr: TProcessRaw = lambda be: process_raw_html(be, cleanup)
+
         # 2. Produce the Raw HTML, process, and write
-        bibentity_with_html = runwrap(rbind(process_raw_html, dltc_env_exec(bibentity_with_mds, container_name)))
+        bibentity_with_html = runwrap(rbind(process_raw_curr, dltc_env_exec(bibentity_with_mds, container_name)))
 
         return bibentity_with_html
 
     finally:
-        # Cleanup any dangling file
-        md_main_file = bibentity_with_mds.markdown.main_file.basename
-        md_master_file = bibentity_with_mds.markdown.master_file.basename
-        local_dir = bibentity_with_mds.markdown.local_base_dir
-        relative_path = bibentity_with_mds.markdown.relative_output_dir
-        full_path = os.path.join(local_dir, relative_path)
+        if cleanup:
+            # Cleanup any dangling file
+            md_main_file = bibentity_with_mds.markdown.main_file.basename
+            md_master_file = bibentity_with_mds.markdown.master_file.basename
+            local_dir = bibentity_with_mds.markdown.local_base_dir
+            relative_path = bibentity_with_mds.markdown.relative_output_dir
+            full_path = os.path.join(local_dir, relative_path)
 
-        md_main_file_path = os.path.join(full_path, md_main_file)
-        md_master_file_path = os.path.join(full_path, md_master_file)
+            md_main_file_path = os.path.join(full_path, md_main_file)
+            md_master_file_path = os.path.join(full_path, md_master_file)
 
-        if os.path.exists(md_main_file_path):
-            os.remove(md_main_file_path)
+            if os.path.exists(md_main_file_path):
+                os.remove(md_main_file_path)
 
-        if os.path.exists(md_master_file_path):
-            os.remove(md_master_file_path)
+            if os.path.exists(md_master_file_path):
+                os.remove(md_master_file_path)
 
 
 @try_except_wrapper(lgr)
-def main_process_local(input_csv: str, encoding: str, env_file: str) -> THTMLReport:
+def main_process_local(input_csv: str, encoding: str, env_file: str, cleanup: bool = True) -> THTMLReport:
 
     # 1. Setup
     ## 1.1 Load environment variables
@@ -72,7 +77,7 @@ def main_process_local(input_csv: str, encoding: str, env_file: str) -> THTMLRep
 
     # 2. Main processing
     bibentities_with_htmls = [
-        ref_pipe(bibentity, local_base_dir, container_base_dir, relative_output_dir, container_name)
+        ref_pipe(bibentity, local_base_dir, container_base_dir, relative_output_dir, container_name, cleanup)
         for bibentity in bibentities
     ]
 
@@ -100,13 +105,23 @@ def cli_main_process_local() -> None:
         default=f"{os.getcwd()}/data",
     )
 
+    parser.add_argument(
+        "-k",
+        "--keep-files",
+        action="store_false",
+        help="If passed, the pipe will not cleanup temporary files while processing",
+        default=True,
+    )
+
     args = parser.parse_args()
 
     curried_gen_report: Callable[[THTMLReport], Ok[None] | Err] = lambda out: generate_report(
         out, args.report_output_folder, args.encoding
     )
 
-    rbind(curried_gen_report, main_process_local(args.input_csv, args.encoding, args.env_file))
+    cleanup = args.keep_files
+
+    rbind(curried_gen_report, main_process_local(args.input_csv, args.encoding, args.env_file, cleanup))
 
 
 if __name__ == "__main__":

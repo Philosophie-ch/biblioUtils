@@ -1,6 +1,7 @@
 from datetime import datetime
 import logging
 from os import getenv
+from typing import FrozenSet
 from fuzzywuzzy import fuzz
 
 from src.sdk.ResultMonad import Err
@@ -104,3 +105,21 @@ def handle_unexpected_exception(msg: str, logger: logging.Logger, code: int = -1
     message = f"Unexpected exception!\n{msg}"
     logger.error(message)
     return Err(message=message, code=code)
+
+
+def pretty_format_frozenset(fs: FrozenSet[object]) -> str:
+    """
+    Pretty format a FrozenSet object, to be used in logging or printing.
+    """
+    if fs is None or fs == frozenset():
+        return ""
+    return ", ".join(sorted([f"{item}" for item in fs]))
+
+
+def dump_frozenset(fs: FrozenSet[object]) -> list[str]:
+    """
+    Dump a FrozenSet object to a list of strings.
+    """
+    if fs is None or fs == frozenset():
+        return []
+    return sorted([f"{item}" for item in fs])

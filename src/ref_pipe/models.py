@@ -2,6 +2,7 @@ from dataclasses import dataclass
 import os
 from typing import FrozenSet, Iterator
 
+from src.sdk.utils import dump_frozenset
 from src.sdk.ResultMonad import Err, Ok
 
 
@@ -70,13 +71,13 @@ class BibEntity:
     further_references: FrozenSet[str]
     dependends_on: FrozenSet[str]
 
-    def dump(self) -> dict[str, str]:
+    def dump(self) -> dict[str, str | list[str]]:
         return {
             "id": f"{self.id}",
             "entity_key": f"{self.entity_key}",
-            "main_bibkeys": f"{self.main_bibkeys}",
-            "further_references": f"{self.further_references}",
-            "depends_on": f"{self.dependends_on}",
+            "main_bibkeys": dump_frozenset(self.main_bibkeys),
+            "further_references": dump_frozenset(self.further_references),
+            "depends_on": dump_frozenset(self.dependends_on),
         }
 
 

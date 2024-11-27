@@ -10,7 +10,7 @@ lgr = get_logger("Generate Markdown")
 
 MD_TEMPLATE = """---
 title: "HTML References Pipeline"
-bibliography: ../../../dialectica.bib
+bibliography: ../../../biblio.bib
 ---
 
 ~%~%~%PUT THE BIBKEYS HERE~%~%~%

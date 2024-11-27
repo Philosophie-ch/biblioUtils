@@ -28,7 +28,7 @@ def dltc_env_exec(bibentity: BibEntityWithMD, container_name: str) -> BibEntityW
         lgr,
     )
 
-    subprocess.run(
+    compilation_result = subprocess.run(
         [
             "docker",
             "exec",
@@ -39,10 +39,19 @@ def dltc_env_exec(bibentity: BibEntityWithMD, container_name: str) -> BibEntityW
             "-c",
             command,
         ],
-        check=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+        capture_output=True,
     )
+
+    if compilation_result.returncode != 0:
+        msg = f"{compilation_result.stderr.decode('utf-8')}"
+        if msg == "":
+            msg = f"{compilation_result.stdout.decode('utf-8')}"
+        if msg == "":
+            msg = f"An unknown error occurred while executing the command '{command}' in the container '{container_name}'."
+
+        raise RuntimeError(msg)
+
+    lginf(frame, f"{compilation_result.stdout.decode('utf-8')}", lgr)
 
     raw_html_name = f"{bibentity.markdown.main_file.basename.replace('.md', '.html')}"
     local_output_directory = f"{bibentity.markdown.local_base_dir}/{relative_output_dir}"
@@ -52,7 +61,15 @@ def dltc_env_exec(bibentity: BibEntityWithMD, container_name: str) -> BibEntityW
         msg = f"The raw HTML file '{raw_html_filename}' was not generated for '{bibentity.entity_key}'. Exiting."
         raise FileNotFoundError(msg)
 
-    return BibEntityWithRawHTML(**bibentity.__dict__, raw_html_filename=raw_html_filename)
+    return BibEntityWithRawHTML(
+        id=bibentity.id,
+        entity_key=bibentity.entity_key,
+        main_bibkeys=bibentity.main_bibkeys,
+        further_references=bibentity.further_references,
+        dependends_on=bibentity.dependends_on,
+        markdown=bibentity.markdown,
+        raw_html_filename=raw_html_filename,
+    )
 
 
 @try_except_wrapper(lgr)
@@ -75,7 +92,7 @@ def filter_divs(divs: list[Tag], bibkeys: list[str]) -> list[str]:
 
 
 @try_except_wrapper(lgr)
-def process_raw_html(bibentity: BibEntityWithRawHTML) -> BibEntityWithHTML:
+def process_raw_html(bibentity: BibEntityWithRawHTML, cleanup: bool = True) -> BibEntityWithHTML:
 
     try:
         frame = f"process_html"
@@ -96,9 +113,10 @@ def process_raw_html(bibentity: BibEntityWithRawHTML) -> BibEntityWithHTML:
         divs_all = soup.find_all('div')
         divs = tuple(div for div in divs_all if isinstance(div, Tag))
 
-        bibkeys = bibentity.main_bibkeys
-        bibfurther = bibentity.further_references
-        bibdeps = bibentity.dependends_on
+        # Order the bibkeys, to get the HTML sorted
+        bibkeys = sorted(list(bibentity.main_bibkeys))
+        bibfurther = sorted(list(bibentity.further_references))
+        bibdeps = sorted(list(bibentity.dependends_on))
 
         # 2. Filter the divs by the bibkeys
         bibkeys_div = runwrap(filter_divs(divs, bibkeys))
@@ -117,7 +135,7 @@ def process_raw_html(bibentity: BibEntityWithRawHTML) -> BibEntityWithHTML:
             raise FileNotFoundError(msg)
 
         # 3. Branches for further references and dependencies
-        if bibfurther != frozenset():
+        if bibfurther != []:
             bibfurther_div = runwrap(filter_divs(divs, bibfurther))
             further_references_filename = f"{local_output_directory}/{bibentity.entity_key}_further_references.html"
 
@@ -131,7 +149,7 @@ def process_raw_html(bibentity: BibEntityWithRawHTML) -> BibEntityWithHTML:
         else:
             further_references_filename = None
 
-        if bibdeps != frozenset():
+        if bibdeps != []:
             bibdeps_div = runwrap(filter_divs(divs, bibdeps))
             dependencies_filename = f"{local_output_directory}/{bibentity.entity_key}_dependencies.html"
 
@@ -151,9 +169,19 @@ def process_raw_html(bibentity: BibEntityWithRawHTML) -> BibEntityWithHTML:
             dependencies_filename=dependencies_filename,
         )
 
-        return BibEntityWithHTML(**bibentity.__dict__, html=ref_html)
+        return BibEntityWithHTML(
+            id=bibentity.id,
+            entity_key=bibentity.entity_key,
+            main_bibkeys=bibentity.main_bibkeys,
+            further_references=bibentity.further_references,
+            dependends_on=bibentity.dependends_on,
+            markdown=bibentity.markdown,
+            raw_html_filename=bibentity.raw_html_filename,
+            html=ref_html,
+        )
 
     finally:
-        # Cleanup the raw HTML file
-        if os.path.exists(raw_html_filename):
-            os.remove(raw_html_filename)
+        if cleanup:
+            # Cleanup the raw HTML file
+            if os.path.exists(raw_html_filename):
+                os.remove(raw_html_filename)
