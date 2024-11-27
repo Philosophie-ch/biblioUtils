@@ -72,7 +72,7 @@ class BibEntity:
     entity_key: str
     main_bibkeys: FrozenSet[str]
     further_references: FrozenSet[str]
-    dependends_on: FrozenSet[str]
+    depends_on: FrozenSet[str]
 
     def dump(self) -> dict[str, str | list[str]]:
         return {
@@ -80,7 +80,7 @@ class BibEntity:
             "entity_key": f"{self.entity_key}",
             "main_bibkeys": dump_frozenset(self.main_bibkeys),
             "further_references": dump_frozenset(self.further_references),
-            "depends_on": dump_frozenset(self.dependends_on),
+            "depends_on": dump_frozenset(self.depends_on),
         }
 
 

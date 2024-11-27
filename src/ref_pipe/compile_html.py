@@ -67,7 +67,7 @@ def dltc_env_exec(bibentity: BibEntityWithMD, container_name: str) -> BibEntityW
         entity_key=bibentity.entity_key,
         main_bibkeys=bibentity.main_bibkeys,
         further_references=bibentity.further_references,
-        dependends_on=bibentity.dependends_on,
+        depends_on=bibentity.depends_on,
         markdown=bibentity.markdown,
         raw_html_filename=raw_html_filename,
     )
@@ -137,7 +137,7 @@ def process_raw_html(bibentity: BibEntityWithRawHTML, cleanup: bool = True) -> B
 
         bibkeys = bibentity.main_bibkeys
         bibfurther = bibentity.further_references
-        bibdeps = bibentity.dependends_on
+        bibdeps = bibentity.depends_on
 
         # 2. Filter the divs by the bibkeys
         bibkeys_div = runwrap(filter_divs(divs, bibkeys))
@@ -195,7 +195,7 @@ def process_raw_html(bibentity: BibEntityWithRawHTML, cleanup: bool = True) -> B
             entity_key=bibentity.entity_key,
             main_bibkeys=bibentity.main_bibkeys,
             further_references=bibentity.further_references,
-            dependends_on=bibentity.dependends_on,
+            depends_on=bibentity.depends_on,
             markdown=bibentity.markdown,
             raw_html_filename=bibentity.raw_html_filename,
             html=ref_html,

@@ -88,7 +88,7 @@ def process_raw_bibentity(raw_bibentity: RawBibEntity) -> BibEntity:
         entity_key=entity_key,
         main_bibkeys=main_bibkeys,
         further_references=further_references,
-        dependends_on=depends_on,
+        depends_on=depends_on,
     )
 
 
@@ -168,7 +168,7 @@ def generate_report(main_output: TMDReport | THTMLReport, output_folder: str, en
                     entity.entity_key,
                     pretty_format_frozenset(entity.main_bibkeys),
                     pretty_format_frozenset(entity.further_references),
-                    pretty_format_frozenset(entity.dependends_on),
+                    pretty_format_frozenset(entity.depends_on),
                     status,
                     err_msg,
                     dump,

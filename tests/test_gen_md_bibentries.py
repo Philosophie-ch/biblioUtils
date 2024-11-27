@@ -56,7 +56,7 @@ def test_load_profiles_csv() -> None:
             assert profile.id in ["1", "2"]
             assert profile.entity_key in ["Doe", "Smith"]
             assert profile.main_bibkeys == {"key1", "key2", "key23"} or profile.main_bibkeys == {"key4", "key5", "key6"}
-            assert profile.dependends_on == frozenset()
+            assert profile.depends_on == frozenset()
 
     # clean up
     finally:
@@ -70,7 +70,7 @@ def test_prepare_md() -> None:
         entity_key="Doe",
         main_bibkeys=frozenset({"key1", "key2", "key23"}),
         further_references=frozenset(),
-        dependends_on=frozenset(),
+        depends_on=frozenset(),
     )
 
     temp_folder = tempfile.mkdtemp()
