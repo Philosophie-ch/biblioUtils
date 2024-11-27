@@ -5,7 +5,7 @@ from typing import Iterator, List, TypeAlias
 from src.sdk.ResultMonad import Err, Ok
 
 
-@dataclass
+@dataclass(frozen=True, slots=True)
 class EnvVars:
     """
     Environment variables required for the ref_pipe project.
@@ -45,7 +45,7 @@ class EnvVars:
         return ", ".join(self.__annotations__.keys())
 
 
-@dataclass
+@dataclass(frozen=True, slots=True)
 class Profile:
     id: str
     lastname: str
@@ -58,7 +58,7 @@ class Profile:
         return f"{self.__dict__}"
 
 
-@dataclass
+@dataclass(frozen=False, slots=True)
 class File:
     content: str
     basename: str
@@ -70,7 +70,7 @@ class File:
         return os.path.join(relative_dir, self.basename)
 
 
-@dataclass
+@dataclass(frozen=True, slots=True)
 class Markdown:
     """
     Markdown files for a profile.
@@ -96,28 +96,28 @@ class Markdown:
     master_file: File
 
 
-@dataclass
+@dataclass(frozen=True, slots=True)
 class ProfileWithMD(Profile):
     markdown: Markdown
 
 
-@dataclass
+@dataclass(frozen=True, slots=True)
 class ProfileWithRawHTML(ProfileWithMD):
     raw_html_filename: str
 
 
-@dataclass
+@dataclass(frozen=True, slots=True)
 class RefHTML:
     references_filename: str
     further_references_filename: str | None = None
     dependencies_filename: str | None = None
 
 
-@dataclass
+@dataclass(frozen=True, slots=True)
 class ProfileWithHTML(ProfileWithRawHTML):
     html: RefHTML
 
 
-TMDReport: TypeAlias = Iterator[tuple[Profile, Ok[ProfileWithMD] | Err]]
+type TMDReport = Iterator[tuple[Profile, Ok[ProfileWithMD] | Err]]
 
-THTMLReport: TypeAlias = Iterator[tuple[Profile, Ok[ProfileWithHTML] | Err]]
+type THTMLReport = Iterator[tuple[Profile, Ok[ProfileWithHTML] | Err]]

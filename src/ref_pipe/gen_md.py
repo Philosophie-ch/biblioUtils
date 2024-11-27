@@ -53,7 +53,15 @@ def prepare_md(
         master_file=master_md,
     )
 
-    profile_with_md = ProfileWithMD(**profile.__dict__, markdown=md)
+    profile_with_md = ProfileWithMD(
+        id=profile.id,
+        lastname=profile.lastname,
+        biblio_name=profile.biblio_name,
+        biblio_keys=profile.biblio_keys,
+        biblio_keys_further_references=profile.biblio_keys_further_references,
+        biblio_dependencies_keys=profile.biblio_dependencies_keys,
+        markdown=md,
+    )
 
     return profile_with_md
 
@@ -93,67 +101,3 @@ def write_md_files(profile: ProfileWithMD) -> ProfileWithMD:
     profile.markdown.master_file.content = ""
 
     return profile
-
-
-# def main(
-# input_csv: str,
-# encoding: str,
-# output_folder: str,
-# ) -> Ok[TMDReport] | Err:
-
-# try:
-# if (not input_csv) or (not output_folder) or (not encoding):
-# return handle_error(
-# frame="main",
-# msg="Please provide the inputs that this function needs. Check its signature",
-# logger=lgr,
-# code=-2,
-# )
-
-## 1. Load profiles from CSV
-## unwrap fails if the result is an Err
-# profiles = runwrap(load_profiles_csv(input_csv, encoding))
-
-## 2. Prepare markdown files
-# profiles_with_mds = [prepare_md(profile, output_folder) for profile in profiles]
-
-# zipped = zip(profiles, profiles_with_mds)
-
-# return Ok(out=zipped)
-
-# except Exception as e:
-# return Err(message=f"An error occurred while trying to generate the markdown files:\n\t{e}", code=-1)
-
-
-# if __name__ == "__main__":
-# import argparse
-
-# parser = argparse.ArgumentParser(description="Generate markdown files from a CSV file.")
-# parser.add_argument("-i", "--input_csv", type=str, help="Path to the CSV file.", required=True)
-# parser.add_argument(
-# "-e", "--encoding", type=str, help="The encoding of the CSV file. 'utf-8' by default.", default="utf-8"
-# )
-# parser.add_argument(
-# "-o", "--output_folder", type=str, help="The folder where the markdown files will be saved.", required=True
-# )
-
-# args = parser.parse_args()
-
-# res = main(args.input_csv, args.encoding, args.output_folder)
-
-# match res:
-# case Ok(out=out):
-## Unpack the zipped profiles and profiles_with_mds
-# out_list = list(out)
-# profiles = [tup[0] for tup in out_list]
-# profiles_with_mds = [tup[1] for tup in out_list]
-
-## 1. Write markdown files to disk
-# writes = [rbind(write_md_files, p) for p in profiles_with_mds]
-
-## 2. Produce report
-# zipped = zip(profiles, writes)
-# generate_report(zipped, args.output_folder, args.encoding, lgr)
-
-# case Err(message=msg, code=code):
-# pass
