@@ -20,10 +20,7 @@ type BibentryWithReferences = Tuple[
     Set[str],  #  direct_references
 ]
 
-type LoadOutput = Tuple[
-    Tuple[BibentryWithReferences, ...],  # tuple of bibentries
-    int  # number of bibentries
-]
+type LoadOutput = Tuple[Tuple[BibentryWithReferences, ...], int]  # tuple of bibentries  # number of bibentries
 
 
 def load_bibentries_csv(filename: str, encoding: str) -> LoadOutput:
@@ -89,7 +86,9 @@ def load_list_of_bibentries_list(filename: str, encoding: str | None) -> LoadOut
             return load_bibentries_ods(filename)
 
         case _:
-            raise ValueError(f"Format '{extension}' not supported. Only CSV and ODS files are supported. File passed was: '{filename}', extension found was '{extension}'.")
+            raise ValueError(
+                f"Format '{extension}' not supported. Only CSV and ODS files are supported. File passed was: '{filename}', extension found was '{extension}'."
+            )
 
 
 type LookupHashmap = Dict[
