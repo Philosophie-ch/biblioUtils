@@ -71,17 +71,17 @@ def load_raw_bibentities_csv(input_file: str, encoding: str) -> list[RawBibEntit
 def process_raw_bibentity(raw_bibentity: RawBibEntity) -> BibEntity:
     id, entity_key, main_bibkeys, further_references_raw, depends_on_raw = raw_bibentity
 
-    lgr.info(f"main_bibkeys: {pretty_format_frozenset(main_bibkeys)}")
-    lgr.info(f"further_references_raw: {pretty_format_frozenset(further_references_raw)}")
-    lgr.info(f"depends_on_raw: {pretty_format_frozenset(depends_on_raw)}")
+    #lgr.info(f"main_bibkeys: {pretty_format_frozenset(main_bibkeys)}")
+    #lgr.info(f"further_references_raw: {pretty_format_frozenset(further_references_raw)}")
+    #lgr.info(f"depends_on_raw: {pretty_format_frozenset(depends_on_raw)}")
 
     # Force uniqueness of sets of bibkeys to prevent unnecessary processing
     further_references = further_references_raw - main_bibkeys
     _depends_on = depends_on_raw - main_bibkeys
     depends_on = _depends_on - further_references
 
-    lgr.info(f"further_references: {pretty_format_frozenset(further_references)}")
-    lgr.info(f"depends_on: {pretty_format_frozenset(depends_on)}")
+    #lgr.info(f"further_references: {pretty_format_frozenset(further_references)}")
+    #lgr.info(f"depends_on: {pretty_format_frozenset(depends_on)}")
 
     return BibEntity(
         id=id,
