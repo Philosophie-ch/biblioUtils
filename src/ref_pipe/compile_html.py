@@ -90,8 +90,9 @@ def get_bibkey_from_div_id(div_id: str) -> str:
     except IndexError:
         lgr.warning(f"Could not find bibkey in div ID '{div_id}'")
         bibkey = ""
-    
+
     return bibkey
+
 
 @try_except_wrapper(lgr)
 def bs_get_div_bibkey(page_element: Tag) -> str:
@@ -102,6 +103,7 @@ def bs_get_div_bibkey(page_element: Tag) -> str:
         case _:
             return get_bibkey_from_div_id(bs_getter.__str__())
 
+
 @try_except_wrapper(lgr)
 def filter_divs(divs: list[Tag], bibkeys: list[str]) -> Tuple[str, ...]:
     """
@@ -109,7 +111,9 @@ def filter_divs(divs: list[Tag], bibkeys: list[str]) -> Tuple[str, ...]:
     """
     divs_and_bibkeys = ((div.__str__(), runwrap(bs_get_div_bibkey(div))) for div in divs)
 
-    filtered_divs = tuple(div for div, div_bibkey in divs_and_bibkeys if any(div_bibkey == bibkey for bibkey in bibkeys))
+    filtered_divs = tuple(
+        div for div, div_bibkey in divs_and_bibkeys if any(div_bibkey == bibkey for bibkey in bibkeys)
+    )
 
     return filtered_divs
 
