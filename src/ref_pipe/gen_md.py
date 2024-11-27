@@ -40,7 +40,7 @@ def prepare_md(
     biblio_keys_str = "\n\n".join(tuple(f"@{key}" for key in biblio_keys))
 
     main_content = MD_TEMPLATE.replace("~%~%~%PUT THE BIBKEYS HERE~%~%~%", biblio_keys_str)
-    main_md = File(content=main_content, basename=f"{bibentity.id}_{bibentity.entity_key}.md")
+    main_md = File(content=main_content, basename=f"{bibentity.url_endpoint}.md")
 
     master_content = MASTER_MD_TEMPLATE.replace("~%~%~%md_filename~%~%~%", main_md.basename)
     master_md = File(content=master_content, basename=f"master.md")
@@ -56,6 +56,7 @@ def prepare_md(
     bibentity_with_md = BibEntityWithMD(
         id=bibentity.id,
         entity_key=bibentity.entity_key,
+        url_endpoint=bibentity.url_endpoint,
         main_bibkeys=bibentity.main_bibkeys,
         further_references=bibentity.further_references,
         depends_on=bibentity.depends_on,

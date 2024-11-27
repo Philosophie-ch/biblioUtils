@@ -7,14 +7,14 @@ from src.ref_pipe.models import BibEntity
 from src.sdk.ResultMonad import Ok
 
 
-TEST_PROFILES_CSV = """id,entity_key,main_bibkeys,further_references,depends_on
-1,Doe,"key1,key2,key23"
-2,Smith,"key4,key5,key6"
+TEST_PROFILES_CSV = """id,entity_key,url_endpoint,main_bibkeys,further_references,depends_on
+1,Doe,doe,"key1,key2,key23"
+2,Smith,smith,"key4,key5,key6"
 """
 
 TEST_DESIRED_MD_ONE = """---
 title: "HTML References Pipeline"
-bibliography: ../../../dialectica.bib
+bibliography: ../../../biblio.bib
 ---
 
 @key1
@@ -28,7 +28,7 @@ bibliography: ../../../dialectica.bib
 
 TEST_DESIRED_MD_TWO = """---
 title: "HTML References Pipeline"
-bibliography: ../../../dialectica.bib
+bibliography: ../../../biblio.bib
 ---
 
 @key4
@@ -43,7 +43,7 @@ bibliography: ../../../dialectica.bib
 
 def test_load_profiles_csv() -> None:
 
-    with tempfile.NamedTemporaryFile(mode="w", delete=False) as f:
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
         f.write(TEST_PROFILES_CSV)
         temp_file_name = f.name
 
@@ -68,6 +68,7 @@ def test_prepare_md() -> None:
     profile = BibEntity(
         id="1",
         entity_key="Doe",
+        url_endpoint="doe",
         main_bibkeys=frozenset({"key1", "key2", "key23"}),
         further_references=frozenset(),
         depends_on=frozenset(),
@@ -90,7 +91,7 @@ def test_prepare_md() -> None:
 
 def test_load_csv_and_prepare_md_pipe() -> None:
 
-    with tempfile.NamedTemporaryFile(mode="w", delete=False) as f:
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
         f.write(TEST_PROFILES_CSV)
         temp_file_name = f.name
 

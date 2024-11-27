@@ -60,6 +60,8 @@ class BibEntity:
         ID in the database.
     `entity_key`: str
         biblio_name for profiles, bibkey for articles.
+    `url_endpoint`: str
+        URL endpoint that refers to the bibliographic entity. For example, 'urlname' for pages, 'login' for profiles.
     `main_bibkeys`: set[str]
         Entries directly written by the author, or direct references made by an article.
     `biblio_keys_further_references`: set[str]
@@ -70,6 +72,7 @@ class BibEntity:
 
     id: str
     entity_key: str
+    url_endpoint: str
     main_bibkeys: FrozenSet[str]
     further_references: FrozenSet[str]
     depends_on: FrozenSet[str]
@@ -78,6 +81,7 @@ class BibEntity:
         return {
             "id": f"{self.id}",
             "entity_key": f"{self.entity_key}",
+            "url_endpoint": f"{self.url_endpoint}",
             "main_bibkeys": dump_frozenset(self.main_bibkeys),
             "further_references": dump_frozenset(self.further_references),
             "depends_on": dump_frozenset(self.depends_on),

@@ -22,13 +22,14 @@ def parse_bibkeys(bibkeys_s: str) -> FrozenSet[str]:
 type RawBibEntity = Tuple[
     str,  # id
     str,  # entity_key
+    str,  # url_endpoint
     FrozenSet[str],  # main_bibkeys
     FrozenSet[str],  # further_references
     FrozenSet[str],  # depends_on
 ]
 
 
-def load_raw_bibentities_csv(input_file: str, encoding: str) -> list[RawBibEntity]: 
+def load_raw_bibentities_csv(input_file: str, encoding: str) -> list[RawBibEntity]:
 
     frame = f"load_bibentities_csv"
     lginf(frame, f"Reading CSV file '{input_file}' with encoding '{encoding}'...", lgr)
@@ -40,7 +41,7 @@ def load_raw_bibentities_csv(input_file: str, encoding: str) -> list[RawBibEntit
     with open(input_file, "r", encoding=encoding) as f:
         reader = csv.DictReader(f)
 
-        required_columns = ["id", "entity_key", "main_bibkeys", "further_references", "depends_on"]
+        required_columns = ["id", "entity_key", "url_endpoint", "main_bibkeys", "further_references", "depends_on"]
 
         if reader.fieldnames is None or not all(col in reader.fieldnames for col in required_columns):
             msg = f"The CSV file needs to have a header row with at least the following columns:\n\t{', '.join(required_columns)}."
@@ -59,6 +60,7 @@ def load_raw_bibentities_csv(input_file: str, encoding: str) -> list[RawBibEntit
             (
                 f"{row['id']}",
                 f"{row['entity_key']}",
+                f"{row['url_endpoint']}",
                 main_bibkeys,
                 further_references_raw,
                 depends_on_raw,
@@ -69,23 +71,24 @@ def load_raw_bibentities_csv(input_file: str, encoding: str) -> list[RawBibEntit
 
 
 def process_raw_bibentity(raw_bibentity: RawBibEntity) -> BibEntity:
-    id, entity_key, main_bibkeys, further_references_raw, depends_on_raw = raw_bibentity
+    bib_id, entity_key, url_endpoint, main_bibkeys, further_references_raw, depends_on_raw = raw_bibentity
 
-    #lgr.info(f"main_bibkeys: {pretty_format_frozenset(main_bibkeys)}")
-    #lgr.info(f"further_references_raw: {pretty_format_frozenset(further_references_raw)}")
-    #lgr.info(f"depends_on_raw: {pretty_format_frozenset(depends_on_raw)}")
+    # lgr.info(f"main_bibkeys: {pretty_format_frozenset(main_bibkeys)}")
+    # lgr.info(f"further_references_raw: {pretty_format_frozenset(further_references_raw)}")
+    # lgr.info(f"depends_on_raw: {pretty_format_frozenset(depends_on_raw)}")
 
     # Force uniqueness of sets of bibkeys to prevent unnecessary processing
     further_references = further_references_raw - main_bibkeys
     _depends_on = depends_on_raw - main_bibkeys
     depends_on = _depends_on - further_references
 
-    #lgr.info(f"further_references: {pretty_format_frozenset(further_references)}")
-    #lgr.info(f"depends_on: {pretty_format_frozenset(depends_on)}")
+    # lgr.info(f"further_references: {pretty_format_frozenset(further_references)}")
+    # lgr.info(f"depends_on: {pretty_format_frozenset(depends_on)}")
 
     return BibEntity(
-        id=id,
+        id=bib_id,
         entity_key=entity_key,
+        url_endpoint=url_endpoint,
         main_bibkeys=main_bibkeys,
         further_references=further_references,
         depends_on=depends_on,
@@ -103,7 +106,7 @@ def load_bibentities(input_file: str, encoding: str) -> tuple[BibEntity, ...]:
         msg = f"The input file '{input_file}' does not exist."
         raise FileNotFoundError(msg)
 
-    extension = input_path.suffix    
+    extension = input_path.suffix
 
     match (extension, encoding):
         case (".csv", _):
@@ -115,10 +118,7 @@ def load_bibentities(input_file: str, encoding: str) -> tuple[BibEntity, ...]:
         case (_, _):
             raise ValueError(f"Unsupported file extension '{extension}'.")
 
-
-    return tuple(
-        process_raw_bibentity(raw_bibentity) for raw_bibentity in raw_bibentities
-    )
+    return tuple(process_raw_bibentity(raw_bibentity) for raw_bibentity in raw_bibentities)
 
 
 @try_except_wrapper(lgr)

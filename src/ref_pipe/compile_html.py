@@ -65,6 +65,7 @@ def dltc_env_exec(bibentity: BibEntityWithMD, container_name: str) -> BibEntityW
     return BibEntityWithRawHTML(
         id=bibentity.id,
         entity_key=bibentity.entity_key,
+        url_endpoint=bibentity.url_endpoint,
         main_bibkeys=bibentity.main_bibkeys,
         further_references=bibentity.further_references,
         depends_on=bibentity.depends_on,
@@ -146,7 +147,7 @@ def process_raw_html(bibentity: BibEntityWithRawHTML, cleanup: bool = True) -> B
         relative_output_dir = bibentity.markdown.relative_output_dir
         local_output_directory = f"{local_base_dir}/{relative_output_dir}"
 
-        references_filename = f"{local_output_directory}/{bibentity.entity_key}_references.html"
+        references_filename = f"{local_output_directory}/{bibentity.url_endpoint}-references.html"
 
         with open(references_filename, "w") as f:
             f.write("\n".join(bibkeys_div))
@@ -158,7 +159,7 @@ def process_raw_html(bibentity: BibEntityWithRawHTML, cleanup: bool = True) -> B
         # 3. Branches for further references and dependencies
         if bibfurther != frozenset():
             bibfurther_div = runwrap(filter_divs(divs, bibfurther))
-            further_references_filename = f"{local_output_directory}/{bibentity.entity_key}_further_references.html"
+            further_references_filename = f"{local_output_directory}/{bibentity.url_endpoint}-further-references.html"
 
             with open(further_references_filename, "w") as f:
                 f.write("\n".join(bibfurther_div))
@@ -172,7 +173,7 @@ def process_raw_html(bibentity: BibEntityWithRawHTML, cleanup: bool = True) -> B
 
         if bibdeps != frozenset():
             bibdeps_div = runwrap(filter_divs(divs, bibdeps))
-            dependencies_filename = f"{local_output_directory}/{bibentity.entity_key}_dependencies.html"
+            dependencies_filename = f"{local_output_directory}/{bibentity.url_endpoint}-dependencies.html"
 
             with open(dependencies_filename, "w") as f:
                 f.write("\n".join(bibdeps_div))
@@ -193,6 +194,7 @@ def process_raw_html(bibentity: BibEntityWithRawHTML, cleanup: bool = True) -> B
         return BibEntityWithHTML(
             id=bibentity.id,
             entity_key=bibentity.entity_key,
+            url_endpoint=bibentity.url_endpoint,
             main_bibkeys=bibentity.main_bibkeys,
             further_references=bibentity.further_references,
             depends_on=bibentity.depends_on,
