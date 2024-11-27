@@ -3,7 +3,7 @@ import subprocess
 from dotenv import load_dotenv
 
 from src.ref_pipe.models import EnvVars
-from src.sdk.utils import handle_error, handle_unexpected_exception, lginf, get_logger
+from src.sdk.utils import lginf, get_logger
 from src.sdk.ResultMonad import Err, Ok, runwrap, try_except_wrapper
 
 

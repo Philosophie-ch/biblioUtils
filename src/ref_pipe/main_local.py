@@ -15,26 +15,26 @@ lgr = get_logger("Main Local")
 
 @try_except_wrapper(lgr)
 def ref_pipe(
-    profile: BibEntity, local_base_dir: str, container_base_dir: str, relative_output_dir: str, container_name: str
+    bibentity: BibEntity, local_base_dir: str, container_base_dir: str, relative_output_dir: str, container_name: str
 ) -> BibEntityWithHTML:
 
     # 1. Prepare and write MD files
-    profile_with_mds = runwrap(
-        rbind(write_md_files, prepare_md(profile, local_base_dir, container_base_dir, relative_output_dir))
+    bibentity_with_mds = runwrap(
+        rbind(write_md_files, prepare_md(bibentity, local_base_dir, container_base_dir, relative_output_dir))
     )
 
     try:
         # 2. Produce the Raw HTML, process, and write
-        profile_with_html = runwrap(rbind(process_raw_html, dltc_env_exec(profile_with_mds, container_name)))
+        bibentity_with_html = runwrap(rbind(process_raw_html, dltc_env_exec(bibentity_with_mds, container_name)))
 
-        return profile_with_html
+        return bibentity_with_html
 
     finally:
         # Cleanup any dangling file
-        md_main_file = profile_with_mds.markdown.main_file.basename
-        md_master_file = profile_with_mds.markdown.master_file.basename
-        local_dir = profile_with_mds.markdown.local_base_dir
-        relative_path = profile_with_mds.markdown.relative_output_dir
+        md_main_file = bibentity_with_mds.markdown.main_file.basename
+        md_master_file = bibentity_with_mds.markdown.master_file.basename
+        local_dir = bibentity_with_mds.markdown.local_base_dir
+        relative_path = bibentity_with_mds.markdown.relative_output_dir
         full_path = os.path.join(local_dir, relative_path)
 
         md_main_file_path = os.path.join(full_path, md_main_file)
@@ -57,8 +57,8 @@ def main_process_local(input_csv: str, encoding: str, env_file: str) -> THTMLRep
     ## 1.2 Start the container
     runwrap(dltc_env_up(v=v))
 
-    ## 1.3 Load profiles
-    profiles = runwrap(
+    ## 1.3 Load the bibentities
+    bibentities = runwrap(
         load_bibentities_csv(input_csv, encoding)
     )  # TODO: abstract away from CSV in particular, inject from outside
 
@@ -71,12 +71,12 @@ def main_process_local(input_csv: str, encoding: str, env_file: str) -> THTMLRep
     )
 
     # 2. Main processing
-    profiles_with_htmls = [
-        ref_pipe(profile, local_base_dir, container_base_dir, relative_output_dir, container_name)
-        for profile in profiles
+    bibentities_with_htmls = [
+        ref_pipe(bibentity, local_base_dir, container_base_dir, relative_output_dir, container_name)
+        for bibentity in bibentities
     ]
 
-    return zip(profiles, profiles_with_htmls)
+    return zip(bibentities, bibentities_with_htmls)
 
 
 def cli_main_process_local() -> None:
