@@ -7,7 +7,7 @@ from src.sdk.utils import get_logger
 from src.sdk.ResultMonad import Err, Ok, rbind, runwrap, try_except_wrapper
 
 from src.ref_pipe.setup import dltc_env_up, load_env_vars, override_csl_file, restore_csl_file
-from src.ref_pipe.filesystem_io import generate_report, load_bibentities
+from src.ref_pipe.filesystem_io import generate_report_for_html_files, load_bibentities
 
 
 lgr = get_logger("Main Local")
@@ -129,7 +129,7 @@ def cli_main_process_local() -> None:
 
     args = parser.parse_args()
 
-    curried_gen_report: Callable[[THTMLReport], Ok[None] | Err] = lambda out: generate_report(
+    curried_gen_report: Callable[[THTMLReport], Ok[None] | Err] = lambda out: generate_report_for_html_files(
         out, args.report_output_folder, args.encoding
     )
 

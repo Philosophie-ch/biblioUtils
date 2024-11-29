@@ -122,12 +122,12 @@ def load_bibentities(input_file: str, encoding: str) -> tuple[BibEntity, ...]:
 
 
 @try_except_wrapper(lgr)
-def generate_report(main_output: TMDReport | THTMLReport, output_folder: str, encoding: str) -> None:
+def generate_report_for_html_files(main_output: THTMLReport, output_folder: str, encoding: str) -> None:
 
-    frame = f"generate_report"
+    frame = f"generate_report_for_html_files"
     lginf(frame, f"Generating report for the markdown file generation...", lgr)
-    os.makedirs(output_folder, exist_ok=True)
 
+    os.makedirs(output_folder, exist_ok=True)
     report_filename = f"{output_folder}/ref_pipe_report.csv"
 
     with open(report_filename, "w", encoding=encoding) as f:
@@ -139,6 +139,9 @@ def generate_report(main_output: TMDReport | THTMLReport, output_folder: str, en
                 "main_bibkeys",
                 "further_references",
                 "depends_on",
+                "references_html_file",
+                "further_references_html_file",
+                "depends_on_html_file",
                 "status",
                 "error_message",
                 "model_dump",
@@ -146,6 +149,12 @@ def generate_report(main_output: TMDReport | THTMLReport, output_folder: str, en
         )
 
         for entity, write_result in main_output:
+            references_html_file = ""
+            further_references_html_file = ""
+            depends_on_html_file = ""
+            status = ""
+            err_msg = ""
+
             match write_result:
                 case Ok(out=out_e):
                     if out_e.entity_key != entity.entity_key:
@@ -154,7 +163,9 @@ def generate_report(main_output: TMDReport | THTMLReport, output_folder: str, en
 
                     else:
                         status = "success"
-                        err_msg = ""
+                        references_html_file = out_e.html.references_filename
+                        further_references_html_file = out_e.html.further_references_filename
+                        depends_on_html_file = out_e.html.dependencies_filename
 
                 case Err(message=message, code=code):
                     status = "error"
@@ -169,6 +180,9 @@ def generate_report(main_output: TMDReport | THTMLReport, output_folder: str, en
                     pretty_format_frozenset(entity.main_bibkeys),
                     pretty_format_frozenset(entity.further_references),
                     pretty_format_frozenset(entity.depends_on),
+                    references_html_file,
+                    further_references_html_file,
+                    depends_on_html_file,
                     status,
                     err_msg,
                     dump,

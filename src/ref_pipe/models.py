@@ -139,8 +139,8 @@ class BibEntityWithRawHTML(BibEntityWithMD):
 @dataclass(frozen=True, slots=True)
 class RefHTML:
     references_filename: str
-    further_references_filename: str | None = None
-    dependencies_filename: str | None = None
+    further_references_filename: str = ""
+    dependencies_filename: str = ""
 
 
 @dataclass(frozen=True, slots=True)

@@ -173,7 +173,7 @@ def process_raw_html(bibentity: BibEntityWithRawHTML, cleanup: bool = True) -> B
                 raise FileNotFoundError(msg)
 
         else:
-            further_references_filename = None
+            further_references_filename = ""
 
         if bibdeps != frozenset():
             bibdeps_div = runwrap(filter_divs(divs, bibdeps))
@@ -187,7 +187,7 @@ def process_raw_html(bibentity: BibEntityWithRawHTML, cleanup: bool = True) -> B
                 raise FileNotFoundError(msg)
 
         else:
-            dependencies_filename = None
+            dependencies_filename = ""
 
         ref_html = RefHTML(
             references_filename=references_filename,
