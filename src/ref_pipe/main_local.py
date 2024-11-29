@@ -59,7 +59,7 @@ def ref_pipe(
 
 @try_except_wrapper(lgr)
 def main_process_local(
-    input_csv: str, encoding: str, entity_type: TSupportedEntity, env_file: str,  cleanup: bool = True
+    input_csv: str, encoding: str, entity_type: TSupportedEntity, env_file: str, cleanup: bool = True
 ) -> THTMLReport:
 
     # 1. Setup
@@ -145,7 +145,9 @@ def cli_main_process_local() -> None:
 
     cleanup = args.keep_files
 
-    rbind(curried_gen_report, main_process_local(args.input_csv, args.encoding, args.entity_type, args.env_file, cleanup))
+    rbind(
+        curried_gen_report, main_process_local(args.input_csv, args.encoding, args.entity_type, args.env_file, cleanup)
+    )
 
 
 if __name__ == "__main__":
