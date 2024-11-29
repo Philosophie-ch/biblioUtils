@@ -25,7 +25,9 @@ class EnvVars:
         Path to the DLTC_WORKHOUSE_DIRECTORY.
     `REF_PIPE_DIR_RELATIVE_PATH`: str
         Relative path to the ref_pipe directory. This is used to locate the ref_pipe directory inside the DLTC_WORKHOUSE_DIRECTORY, both in the local system and in the container.
-    `CONTAINER_NAME`: str
+    `DOCKER_IMAGE_NAME`: str
+        Name of the Docker image to use.
+    `DOCKER_CONTAINER_NAME`: str
         Name of the container to run the commands in.
     `DOCKER_COMPOSE_FILE`: str
         Path to the Docker Compose file.
@@ -40,7 +42,8 @@ class EnvVars:
     DLTC_WORKHOUSE_DIRECTORY: str
     CONTAINER_DLTC_WORKHOUSE_DIRECTORY: str
     REF_PIPE_DIR_RELATIVE_PATH: str
-    CONTAINER_NAME: str
+    DOCKER_IMAGE_NAME: str
+    DOCKER_CONTAINER_NAME: str
     DOCKER_COMPOSE_FILE: str
     CSL_FILE: str
 
@@ -60,7 +63,6 @@ type TBibEntityAttribute = Literal[
     "further_references",
     "depends_on",
 ]
-
 
 @dataclass(frozen=True, slots=True)
 class BibEntity:

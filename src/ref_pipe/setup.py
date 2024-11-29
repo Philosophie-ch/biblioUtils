@@ -27,7 +27,8 @@ def load_env_vars(env_file: str) -> EnvVars:
     dltc_workhouse_directory = os.getenv("DLTC_WORKHOUSE_DIRECTORY")
     container_dltc_workhouse_directory = os.getenv("CONTAINER_DLTC_WORKHOUSE_DIRECTORY")
     ref_pipe_dir_relative_path = os.getenv("REF_PIPE_DIR_RELATIVE_PATH")
-    container_name = os.getenv("CONTAINER_NAME")
+    docker_image_name = os.getenv("DOCKER_IMAGE_NAME")
+    docker_container_name = os.getenv("DOCKER_CONTAINER_NAME")
     docker_compose_file = os.getenv("DOCKER_COMPOSE_FILE")
     csl_file = os.getenv("CSL_FILE")
 
@@ -39,7 +40,8 @@ def load_env_vars(env_file: str) -> EnvVars:
         and dltc_workhouse_directory
         and container_dltc_workhouse_directory
         and ref_pipe_dir_relative_path
-        and container_name
+        and docker_image_name
+        and docker_container_name
         and docker_compose_file
         and csl_file
     ):
@@ -82,7 +84,8 @@ def load_env_vars(env_file: str) -> EnvVars:
         DLTC_WORKHOUSE_DIRECTORY=dltc_workhouse_directory,
         CONTAINER_DLTC_WORKHOUSE_DIRECTORY=container_dltc_workhouse_directory,
         REF_PIPE_DIR_RELATIVE_PATH=ref_pipe_dir_relative_path,
-        CONTAINER_NAME=container_name,
+        DOCKER_IMAGE_NAME=docker_image_name,
+        DOCKER_CONTAINER_NAME=docker_container_name,
         DOCKER_COMPOSE_FILE=docker_compose_file,
         CSL_FILE=csl_file,
     )
@@ -101,14 +104,14 @@ def dltc_env_up(v: EnvVars) -> None:
             )
 
         # 1. Load environment variables
-        DOCKER_IMAGE_TAG = f"{v.DOCKERHUB_USERNAME}/{v.CONTAINER_NAME}:latest-{v.ARCH}"
+        DOCKER_IMAGE_TAG = f"{v.DOCKERHUB_USERNAME}/{v.DOCKER_IMAGE_NAME}:latest-{v.ARCH}"
 
         # If container is running, return early
         docker_ps_cmd = ["docker", "ps", "--format", "{{.Names}}"]
         docker_ps_r = subprocess.run(docker_ps_cmd, capture_output=True, text=True)
 
-        if docker_ps_r.returncode == 0 and v.CONTAINER_NAME in docker_ps_r.stdout:
-            lginf(frame, f"The container '{v.CONTAINER_NAME}' is already running. Skipping container setup.", lgr)
+        if docker_ps_r.returncode == 0 and v.DOCKER_CONTAINER_NAME in docker_ps_r.stdout:
+            lginf(frame, f"The container '{v.DOCKER_CONTAINER_NAME}' is already running. Skipping container setup.", lgr)
             return None
 
         # 2. Login to DockerHub, pull, and logout

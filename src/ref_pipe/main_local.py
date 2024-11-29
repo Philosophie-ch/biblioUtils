@@ -82,7 +82,7 @@ def main_process_local(
         v.DLTC_WORKHOUSE_DIRECTORY,
         v.CONTAINER_DLTC_WORKHOUSE_DIRECTORY,
         v.REF_PIPE_DIR_RELATIVE_PATH,
-        v.CONTAINER_NAME,
+        v.DOCKER_CONTAINER_NAME,
     )
 
     # 2. Main processing
