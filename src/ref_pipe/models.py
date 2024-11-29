@@ -64,6 +64,7 @@ type TBibEntityAttribute = Literal[
     "depends_on",
 ]
 
+
 @dataclass(frozen=True, slots=True)
 class BibEntity:
     """

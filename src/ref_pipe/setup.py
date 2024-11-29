@@ -111,7 +111,9 @@ def dltc_env_up(v: EnvVars) -> None:
         docker_ps_r = subprocess.run(docker_ps_cmd, capture_output=True, text=True)
 
         if docker_ps_r.returncode == 0 and v.DOCKER_CONTAINER_NAME in docker_ps_r.stdout:
-            lginf(frame, f"The container '{v.DOCKER_CONTAINER_NAME}' is already running. Skipping container setup.", lgr)
+            lginf(
+                frame, f"The container '{v.DOCKER_CONTAINER_NAME}' is already running. Skipping container setup.", lgr
+            )
             return None
 
         # 2. Login to DockerHub, pull, and logout
