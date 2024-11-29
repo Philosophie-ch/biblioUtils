@@ -7,7 +7,7 @@ from src.ref_pipe.models import BibEntity
 from src.sdk.ResultMonad import Ok
 
 
-TEST_PROFILES_CSV = """id,entity_key,url_endpoint,main_bibkeys,further_references,depends_on
+TEST_PROFILES_CSV = """id,biblio_name,login,biblio_keys,biblio_keys_further_references,biblio_dependencies_keys
 1,Doe,doe,"key1,key2,key23"
 2,Smith,smith,"key4,key5,key6"
 """
@@ -48,7 +48,7 @@ def test_load_profiles_csv() -> None:
         temp_file_name = f.name
 
     try:
-        output = load_bibentities(temp_file_name, "utf-8")
+        output = load_bibentities(temp_file_name, "utf-8", "profile")
 
         assert isinstance(output, Ok)
         for profile in output.out:
@@ -98,7 +98,7 @@ def test_load_csv_and_prepare_md_pipe() -> None:
     try:
         temp_folder = tempfile.mkdtemp()
 
-        step_one_output = load_bibentities(temp_file_name, "utf-8")
+        step_one_output = load_bibentities(temp_file_name, "utf-8", "profile")
 
         assert isinstance(step_one_output, Ok)
 

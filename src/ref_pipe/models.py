@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 import os
-from typing import FrozenSet, Iterator
+from typing import FrozenSet, Iterator, Literal
 
 from src.sdk.utils import dump_frozenset
 from src.sdk.ResultMonad import Err, Ok
@@ -47,6 +47,19 @@ class EnvVars:
     @classmethod
     def attribute_names(self) -> str:
         return ", ".join(self.__annotations__.keys())
+
+
+SUPPORTED_ENTITY_TYPES = ("profile", "article")
+type TSupportedEntity = Literal["profile", "article"]
+
+type TBibEntityAttribute = Literal[
+    "id",
+    "entity_key",
+    "url_endpoint",
+    "main_bibkeys",
+    "further_references",
+    "depends_on",
+]
 
 
 @dataclass(frozen=True, slots=True)

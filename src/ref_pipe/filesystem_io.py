@@ -1,10 +1,17 @@
 import csv
 import os
 from pathlib import Path
-from typing import FrozenSet, Tuple
+from typing import Dict, FrozenSet, Tuple
 from src.sdk.ResultMonad import Err, Ok, runwrap, runwrap_or, try_except_wrapper
 from src.sdk.utils import get_logger, lginf, remove_extra_whitespace, pretty_format_frozenset
-from src.ref_pipe.models import BibEntity, TMDReport, THTMLReport
+from src.ref_pipe.models import (
+    SUPPORTED_ENTITY_TYPES,
+    BibEntity,
+    TMDReport,
+    THTMLReport,
+    TSupportedEntity,
+    TBibEntityAttribute,
+)
 
 
 lgr = get_logger("Filesystem I/O")
@@ -28,11 +35,33 @@ type RawBibEntity = Tuple[
     FrozenSet[str],  # depends_on
 ]
 
+"""
+The following dictionary maps the attributes of the external CSV file to the attributes of the BibEntity class.
+"""
+EXTERNAL_COLUMN: Dict[TSupportedEntity, Dict[TBibEntityAttribute, str]] = {
+    "profile": {
+        "id": "id",
+        "entity_key": "biblio_name",
+        "url_endpoint": "login",
+        "main_bibkeys": "biblio_keys",
+        "further_references": "biblio_keys_further_references",
+        "depends_on": "biblio_dependencies_keys",
+    },
+    "article": {
+        "id": "id",
+        "entity_key": "_article_bib_key",
+        "url_endpoint": "urlname",
+        "main_bibkeys": "ref_bib_keys",
+        "further_references": "_further_refs",
+        "depends_on": "_depends_on",
+    },
+}
 
-def load_raw_bibentities_csv(input_file: str, encoding: str) -> list[RawBibEntity]:
+
+def load_raw_bibentities_csv(input_file: str, encoding: str, entity_type: TSupportedEntity) -> list[RawBibEntity]:
 
     frame = f"load_bibentities_csv"
-    lginf(frame, f"Reading CSV file '{input_file}' with encoding '{encoding}'...", lgr)
+    lginf(frame, f"Reading CSV file '{input_file}' with encoding '{encoding}' for entity type '{entity_type}'...", lgr)
 
     if not os.path.exists(input_file):
         msg = f"The input file '{input_file}' does not exist."
@@ -41,7 +70,7 @@ def load_raw_bibentities_csv(input_file: str, encoding: str) -> list[RawBibEntit
     with open(input_file, "r", encoding=encoding) as f:
         reader = csv.DictReader(f)
 
-        required_columns = ["id", "entity_key", "url_endpoint", "main_bibkeys", "further_references", "depends_on"]
+        required_columns = tuple(col for col in EXTERNAL_COLUMN[entity_type].values())
 
         if reader.fieldnames is None or not all(col in reader.fieldnames for col in required_columns):
             msg = f"The CSV file needs to have a header row with at least the following columns:\n\t{', '.join(required_columns)}."
@@ -50,17 +79,31 @@ def load_raw_bibentities_csv(input_file: str, encoding: str) -> list[RawBibEntit
         rows = tuple(reader)  # Read all rows into memory
 
     output: list[RawBibEntity] = []
+
+    id_column = EXTERNAL_COLUMN[entity_type]["id"]
+    entity_key_column = EXTERNAL_COLUMN[entity_type]["entity_key"]
+    url_endpoint_column = EXTERNAL_COLUMN[entity_type]["url_endpoint"]
+    main_bibkeys_column = EXTERNAL_COLUMN[entity_type]["main_bibkeys"]
+    further_references_column = EXTERNAL_COLUMN[entity_type]["further_references"]
+    depends_on_column = EXTERNAL_COLUMN[entity_type]["depends_on"]
+
     for row in rows:
         # Sanitize inputs
-        main_bibkeys = runwrap(parse_bibkeys(row["main_bibkeys"]))
-        further_references_raw = runwrap_or(parse_bibkeys(row["further_references"]), frozenset())
-        depends_on_raw = runwrap_or(parse_bibkeys(row["depends_on"]), frozenset())
+        main_bibkeys = runwrap(parse_bibkeys(row[main_bibkeys_column]))
+        further_references_raw = runwrap_or(parse_bibkeys(row[further_references_column]), frozenset())
+        depends_on_raw = runwrap_or(parse_bibkeys(row[depends_on_column]), frozenset())
 
         output.append(
             (
-                f"{row['id']}",
-                f"{row['entity_key']}",
-                f"{row['url_endpoint']}",
+                f"{row[
+                    id_column
+                ]}",
+                f"{row[
+                    entity_key_column
+                ]}",
+                f"{row[
+                    url_endpoint_column
+                ]}",
                 main_bibkeys,
                 further_references_raw,
                 depends_on_raw,
@@ -96,9 +139,13 @@ def process_raw_bibentity(raw_bibentity: RawBibEntity) -> BibEntity:
 
 
 @try_except_wrapper(lgr)
-def load_bibentities(input_file: str, encoding: str) -> tuple[BibEntity, ...]:
+def load_bibentities(input_file: str, encoding: str, entity_type: TSupportedEntity) -> tuple[BibEntity, ...]:
 
     frame = f"load_bibentities"
+
+    if entity_type not in SUPPORTED_ENTITY_TYPES:
+        raise ValueError(f"Unsupported entity type '{entity_type}'.")
+
     lginf(frame, f"Reading input file '{input_file}'...", lgr)
 
     input_path = Path(input_file)
@@ -113,7 +160,7 @@ def load_bibentities(input_file: str, encoding: str) -> tuple[BibEntity, ...]:
             if encoding is None:
                 raise ValueError("The encoding must be specified for CSV files.")
 
-            raw_bibentities = load_raw_bibentities_csv(input_file, encoding)
+            raw_bibentities = load_raw_bibentities_csv(input_file, encoding, entity_type)
 
         case (_, _):
             raise ValueError(f"Unsupported file extension '{extension}'.")

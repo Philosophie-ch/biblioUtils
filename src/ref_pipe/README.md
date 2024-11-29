@@ -29,5 +29,5 @@ Then, populate the `.env` file following the template. You'll also need access t
 To execute the pipeline, run the following command at the root of the project, with the virtual environment active:
 
 ```bash
-PYTHONPATH='.' python src/ref_pipe/main_local.py -i data/rptest.csv -e 'utf-16' -v src/ref_pipe/.env
+PYTHONPATH='.' python src/ref_pipe/main_local.py -i data/rptest.csv -e 'utf-16' -t 'article' -v src/ref_pipe/.env
 ```

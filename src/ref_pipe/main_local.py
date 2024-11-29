@@ -2,7 +2,7 @@ import os
 from typing import Callable
 from src.ref_pipe.compile_html import dltc_env_exec, process_raw_html
 from src.ref_pipe.gen_md import prepare_md, write_md_files
-from src.ref_pipe.models import BibEntity, BibEntityWithHTML, BibEntityWithRawHTML, THTMLReport
+from src.ref_pipe.models import BibEntity, BibEntityWithHTML, BibEntityWithRawHTML, THTMLReport, TSupportedEntity
 from src.sdk.utils import get_logger
 from src.sdk.ResultMonad import Err, Ok, rbind, runwrap, try_except_wrapper
 
@@ -58,7 +58,9 @@ def ref_pipe(
 
 
 @try_except_wrapper(lgr)
-def main_process_local(input_csv: str, encoding: str, env_file: str, cleanup: bool = True) -> THTMLReport:
+def main_process_local(
+    input_csv: str, encoding: str, entity_type: TSupportedEntity, env_file: str,  cleanup: bool = True
+) -> THTMLReport:
 
     # 1. Setup
     ## 1.1 Load environment variables
@@ -72,7 +74,7 @@ def main_process_local(input_csv: str, encoding: str, env_file: str, cleanup: bo
 
     ## 1.4 Load the bibentities
     bibentities = runwrap(
-        load_bibentities(input_csv, encoding)
+        load_bibentities(input_csv, encoding, entity_type)
     )  # TODO: abstract away from CSV in particular, inject from outside
 
     ## 1.5 Unpack environment variables for ref_pipe
@@ -109,6 +111,14 @@ def cli_main_process_local() -> None:
         "-e", "--encoding", type=str, help="The encoding of the CSV file. 'utf-8' by default.", required=True
     )
 
+    parser.add_argument(
+        "-t",
+        "--entity-type",
+        type=str,
+        help="The type of the entity to process. Must be one of 'profile' or 'article'.",
+        required=True,
+    )
+
     parser.add_argument("-v", "--env_file", type=str, help="Path to the environment file.", required=True)
 
     parser.add_argument(
@@ -135,7 +145,7 @@ def cli_main_process_local() -> None:
 
     cleanup = args.keep_files
 
-    rbind(curried_gen_report, main_process_local(args.input_csv, args.encoding, args.env_file, cleanup))
+    rbind(curried_gen_report, main_process_local(args.input_csv, args.encoding, args.entity_type, args.env_file, cleanup))
 
 
 if __name__ == "__main__":
