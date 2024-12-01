@@ -65,12 +65,7 @@ def main_process_local(
     ## 1.3 Start the container
     runwrap(dltc_env_up(v))
 
-    ## 1.4 Load the bibentities
-    bibentities = runwrap(
-        load_bibentities(input_csv, encoding, entity_type)
-    )  # TODO: abstract away from CSV in particular, inject from outside
-
-    ## 1.5 Unpack environment variables for ref_pipe
+    ## 1.4 Unpack environment variables for ref_pipe
     local_base_dir, container_base_dir, relative_output_dir, container_name = (
         v.DLTC_WORKHOUSE_DIRECTORY,
         v.CONTAINER_DLTC_WORKHOUSE_DIRECTORY,
@@ -78,9 +73,15 @@ def main_process_local(
         v.DOCKER_CONTAINER_NAME,
     )
 
-    ## 1.6 Load the bibliography
+    ## 1.5 Load the bibliography
     local_bibliography_filepth = f"{local_base_dir}/{v.BIBLIOGRAPHY_BASE_FILENAME}"
     bibliography = runwrap(load_bibliography(local_bibliography_filepth))
+
+    ## 1.6 Load the bibentities
+    bibentities = runwrap(
+        load_bibentities(input_csv, encoding, entity_type, bibliography)
+    )  # TODO: abstract away from CSV in particular, inject from outside
+
 
     # 2. Main processing
     bibentities_with_htmls = [

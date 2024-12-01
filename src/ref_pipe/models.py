@@ -146,7 +146,7 @@ class Markdown(NamedTuple):
 
 class RefHTML(NamedTuple):
     references_filename: str
-    further_references_filename: str = ""
+    further_references_filename: str
 
 
 @dataclass(frozen=True, slots=True)

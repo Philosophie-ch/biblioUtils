@@ -18,18 +18,34 @@ def gen_html_files(bibentity: BibEntity, bibdivs: Tuple[BibDiv, ...], output_bas
 
     main_bibkeys = bibentity.main_bibkeys
     further_references = bibentity.further_references
-    depends_on = bibentity.depends_on
 
     # 1. Main references
-    main_bibkeys_divs = tuple(bibdiv.content for bibdiv in bibdivs if bibdiv.div_id in main_bibkeys)
-    main_bibkeys_filename = f"{output_basedir}/{bibentity.url_endpoint}-references.html"
+    if main_bibkeys != frozenset():
+        main_bibkeys_divs = tuple(bibdiv.content for bibdiv in bibdivs if bibdiv.div_id in main_bibkeys)
+        main_bibkeys_filename = f"{output_basedir}/{bibentity.url_endpoint}-references.html"
 
-    with open(main_bibkeys_filename, "w") as f:
-        f.write("\n".join(main_bibkeys_divs))
+        with open(main_bibkeys_filename, "w") as f:
+            f.write("\n".join(main_bibkeys_divs))
 
-    if not os.path.exists(main_bibkeys_filename):
-        msg = f"The main references HTML file '{main_bibkeys_filename}' was not generated for '{bibentity.entity_key}'. Exiting."
-        raise FileNotFoundError(msg)
+        if not os.path.exists(main_bibkeys_filename):
+            msg = f"The main references HTML file '{main_bibkeys_filename}' was not generated for '{bibentity.entity_key}'. Exiting."
+            raise FileNotFoundError(msg)
+    
+    else:
+        # Skip if there are no main references
+        lginf(frame, f"Note: no main references found for '{bibentity.entity_key}'.", lgr)
+        return BibEntityWithHTML(
+            id=bibentity.id,
+            entity_key=bibentity.entity_key,
+            url_endpoint=bibentity.url_endpoint,
+            main_bibkeys=bibentity.main_bibkeys,
+            further_references=bibentity.further_references,
+            depends_on=bibentity.depends_on,
+            html=RefHTML(
+                references_filename="",
+                further_references_filename="",
+            ),
+        )
 
     # 2. Further references and dependencies
     if further_references != frozenset():

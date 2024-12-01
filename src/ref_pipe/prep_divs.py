@@ -293,6 +293,12 @@ def gen_bib_html_divs(
         frame = f"gen_bib_html_divs"
         lginf(frame, f"Generating divs for {bibentity.entity_key}...", lgr)
 
+        main_bibkeys = bibentity.main_bibkeys
+
+        if main_bibkeys == frozenset():
+            # Skip if there are no main bibkeys
+            return tuple()
+
         html_bib_file = runwrap(
             gen_raw_html_file(
                 bibentity,
@@ -307,6 +313,7 @@ def gen_bib_html_divs(
         bibdivs = tuple(div for div in runwrap(extract_divs(html_bib_file)))
 
         lginf(frame, f"Divs generated successfully for {bibentity.entity_key}.", lgr)
+
         return bibdivs
 
     finally:
