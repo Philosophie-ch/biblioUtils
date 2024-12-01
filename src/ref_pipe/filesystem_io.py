@@ -198,7 +198,7 @@ def load_bibliography(bibliography_file: str) -> Bibliography:
 
     if bibkeys_len != bibliography_len:
         raise ValueError(
-            f"The number of bibkeys ({bibkeys_len}) should be the same as the number of lines in the bibliography ({bibliography_len}). This means that bibkeys are not unique, or some lines didn't contain bibkeys at all. Fix the consistency of your bibliography and try again."
+            f"The number of bibkeys ({bibkeys_len}) should be the same as the number of lines in the bibliography ({bibliography_len}). This means that bibkeys are not unique, or some lines didn't contain bibkeys at all, or your bibliography file is not a valid bib file. Fix the consistency of your bibliography and try again."
         )
 
     if len(bibkeys) != len(bibkey_linenum_d):
