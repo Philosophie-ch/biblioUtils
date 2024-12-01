@@ -1,13 +1,13 @@
 import os
 from typing import Callable
-from src.ref_pipe.compile_html import dltc_env_exec, process_raw_html
-from src.ref_pipe.gen_md import prepare_md, write_md_files
-from src.ref_pipe.models import BibEntity, BibEntityWithHTML, BibEntityWithRawHTML, THTMLReport, TSupportedEntity
+from src.ref_pipe.generate_html import gen_html_files
+from src.ref_pipe.prep_divs import gen_bib_html_divs
+from src.ref_pipe.models import BibEntity, BibEntityWithHTML, Bibliography, THTMLReport, TSupportedEntity
 from src.sdk.utils import get_logger
 from src.sdk.ResultMonad import Err, Ok, rbind, runwrap, try_except_wrapper
 
 from src.ref_pipe.setup import dltc_env_up, load_env_vars, override_csl_file, restore_csl_file
-from src.ref_pipe.filesystem_io import generate_report_for_html_files, load_bibentities
+from src.ref_pipe.filesystem_io import generate_report_for_html_files, load_bibentities, load_bibliography
 
 
 lgr = get_logger("Main Local")
@@ -16,50 +16,43 @@ lgr = get_logger("Main Local")
 @try_except_wrapper(lgr)
 def ref_pipe(
     bibentity: BibEntity,
+    bibliography: Bibliography,
     local_base_dir: str,
     container_base_dir: str,
     relative_output_dir: str,
     container_name: str,
-    cleanup: bool = True,
 ) -> BibEntityWithHTML:
 
-    # 1. Prepare and write MD files
-    bibentity_with_mds = runwrap(
-        rbind(write_md_files, prepare_md(bibentity, local_base_dir, container_base_dir, relative_output_dir))
+    # 1. Prepare divs for the bibentity
+    bibdivs = runwrap(
+        gen_bib_html_divs(
+            bibentity,
+            bibliography,
+            local_base_dir,
+            container_base_dir,
+            relative_output_dir,
+            container_name,
+        )
     )
 
-    try:
+    # 2. Prepare html files per bibentity
+    bibentity_with_html = runwrap(
+        gen_html_files(
+            bibentity,
+            bibdivs,
+            f"{local_base_dir}/{relative_output_dir}",
+        )
+    )
 
-        type TProcessRaw = Callable[[BibEntityWithRawHTML], Ok[BibEntityWithHTML] | Err]
-        process_raw_curr: TProcessRaw = lambda be: process_raw_html(be, cleanup)
-
-        # 2. Produce the Raw HTML, process, and write
-        bibentity_with_html = runwrap(rbind(process_raw_curr, dltc_env_exec(bibentity_with_mds, container_name)))
-
-        return bibentity_with_html
-
-    finally:
-        if cleanup:
-            # Cleanup any dangling file
-            md_main_file = bibentity_with_mds.markdown.main_file.basename
-            md_master_file = bibentity_with_mds.markdown.master_file.basename
-            local_dir = bibentity_with_mds.markdown.local_base_dir
-            relative_path = bibentity_with_mds.markdown.relative_output_dir
-            full_path = os.path.join(local_dir, relative_path)
-
-            md_main_file_path = os.path.join(full_path, md_main_file)
-            md_master_file_path = os.path.join(full_path, md_master_file)
-
-            if os.path.exists(md_main_file_path):
-                os.remove(md_main_file_path)
-
-            if os.path.exists(md_master_file_path):
-                os.remove(md_master_file_path)
+    return bibentity_with_html
 
 
 @try_except_wrapper(lgr)
 def main_process_local(
-    input_csv: str, encoding: str, entity_type: TSupportedEntity, env_file: str, cleanup: bool = True
+    input_csv: str,
+    encoding: str,
+    entity_type: TSupportedEntity,
+    env_file: str,
 ) -> THTMLReport:
 
     # 1. Setup
@@ -85,9 +78,20 @@ def main_process_local(
         v.DOCKER_CONTAINER_NAME,
     )
 
+    ## 1.6 Load the bibliography
+    local_bibliography_filepth = f"{local_base_dir}/{v.BIBLIOGRAPHY_BASE_FILENAME}"
+    bibliography = runwrap(load_bibliography(local_bibliography_filepth))
+
     # 2. Main processing
     bibentities_with_htmls = [
-        ref_pipe(bibentity, local_base_dir, container_base_dir, relative_output_dir, container_name, cleanup)
+        ref_pipe(
+            bibentity,
+            bibliography,
+            local_base_dir,
+            container_base_dir,
+            relative_output_dir,
+            container_name,
+        )
         for bibentity in bibentities
     ]
 
@@ -129,24 +133,20 @@ def cli_main_process_local() -> None:
         default=f"{os.getcwd()}/data",
     )
 
-    parser.add_argument(
-        "-k",
-        "--keep-files",
-        action="store_false",
-        help="If passed, the pipe will not cleanup temporary files while processing",
-        default=True,
-    )
-
     args = parser.parse_args()
 
     curried_gen_report: Callable[[THTMLReport], Ok[None] | Err] = lambda out: generate_report_for_html_files(
         out, args.report_output_folder, args.encoding
     )
 
-    cleanup = args.keep_files
-
     rbind(
-        curried_gen_report, main_process_local(args.input_csv, args.encoding, args.entity_type, args.env_file, cleanup)
+        curried_gen_report,
+        main_process_local(
+            args.input_csv,
+            args.encoding,
+            args.entity_type,
+            args.env_file,
+        ),
     )
 
 

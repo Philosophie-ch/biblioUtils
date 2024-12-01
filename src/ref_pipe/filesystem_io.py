@@ -7,7 +7,7 @@ from src.sdk.utils import get_logger, lginf, remove_extra_whitespace, pretty_for
 from src.ref_pipe.models import (
     SUPPORTED_ENTITY_TYPES,
     BibEntity,
-    TMDReport,
+    Bibliography,
     THTMLReport,
     TSupportedEntity,
     TBibEntityAttribute,
@@ -168,6 +168,54 @@ def load_bibentities(input_file: str, encoding: str, entity_type: TSupportedEnti
     return tuple(process_raw_bibentity(raw_bibentity) for raw_bibentity in raw_bibentities)
 
 
+def _extract_bibkey(line: str) -> str:
+    bracket_split = line.split("{")
+    comma_split = bracket_split[1].split(",")
+    bibkey = comma_split[0]
+    return remove_extra_whitespace(bibkey)
+
+
+@try_except_wrapper(lgr)
+def load_bibliography(bibliography_file: str) -> Bibliography:
+
+    frame = f"load_bibliography_bibkeys"
+    lginf(frame, f"Reading bibliography file '{bibliography_file}'...", lgr)
+
+    if not os.path.exists(bibliography_file):
+        msg = f"The bibliography file '{bibliography_file}' does not exist."
+        raise FileNotFoundError(msg)
+
+    with open(bibliography_file, "r") as f:
+        bibkey_linenum_d = {_extract_bibkey(line): i for i, line in enumerate(f.readlines())}
+
+    with open(bibliography_file, "r") as f:
+        bibkeys = frozenset({_extract_bibkey(line) for line in f.readlines()})
+
+    with open(bibliography_file, "r") as f:
+        bibliography_len = len(f.readlines())
+
+    bibkeys_len = len(bibkeys)
+
+    if bibkeys_len != bibliography_len:
+        raise ValueError(
+            f"The number of bibkeys ({bibkeys_len}) should be the same as the number of lines in the bibliography ({bibliography_len}). This means that bibkeys are not unique, or some lines didn't contain bibkeys at all. Fix the consistency of your bibliography and try again."
+        )
+
+    if len(bibkeys) != len(bibkey_linenum_d):
+        raise ValueError(
+            f"The number of bibkeys and the number of line numbers should be the same. This means that bibkeys are not unique. Found {len(bibkeys)} bibkeys but {len(bibkey_linenum_d)} line numbers in the bibliography. Fix the consistency of your bibliography and try again."
+        )
+
+    with open(bibliography_file, "r") as f:
+        content_tuple = tuple(f.readlines())
+
+    return Bibliography(
+        bibkeys=bibkeys,
+        bibkey_index_dict=bibkey_linenum_d,
+        content=content_tuple,
+    )
+
+
 @try_except_wrapper(lgr)
 def generate_report_for_html_files(main_output: THTMLReport, output_folder: str, encoding: str) -> None:
 
@@ -188,7 +236,6 @@ def generate_report_for_html_files(main_output: THTMLReport, output_folder: str,
                 "depends_on",
                 "references_html_file",
                 "further_references_html_file",
-                "depends_on_html_file",
                 "status",
                 "error_message",
                 "model_dump",
@@ -198,7 +245,6 @@ def generate_report_for_html_files(main_output: THTMLReport, output_folder: str,
         for entity, write_result in main_output:
             references_html_file = ""
             further_references_html_file = ""
-            depends_on_html_file = ""
             status = ""
             err_msg = ""
 
@@ -212,7 +258,6 @@ def generate_report_for_html_files(main_output: THTMLReport, output_folder: str,
                         status = "success"
                         references_html_file = out_e.html.references_filename
                         further_references_html_file = out_e.html.further_references_filename
-                        depends_on_html_file = out_e.html.dependencies_filename
 
                 case Err(message=message, code=code):
                     status = "error"
@@ -229,7 +274,6 @@ def generate_report_for_html_files(main_output: THTMLReport, output_folder: str,
                     pretty_format_frozenset(entity.depends_on),
                     references_html_file,
                     further_references_html_file,
-                    depends_on_html_file,
                     status,
                     err_msg,
                     dump,

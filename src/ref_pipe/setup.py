@@ -21,7 +21,7 @@ def load_env_vars(env_file: str) -> EnvVars:
     load_dotenv(dotenv_path=env_file)
 
     arch = os.getenv("ARCH")
-    dltc_biblio = os.getenv("DLTC_BIBLIO")
+    bibliography_base_filename = os.getenv("BIBLIOGRAPHY_BASE_FILENAME")
     dockerhub_token = os.getenv("DOCKERHUB_TOKEN")
     dockerhub_username = os.getenv("DOCKERHUB_USERNAME")
     dltc_workhouse_directory = os.getenv("DLTC_WORKHOUSE_DIRECTORY")
@@ -34,7 +34,7 @@ def load_env_vars(env_file: str) -> EnvVars:
 
     if not (
         arch
-        and dltc_biblio
+        and bibliography_base_filename
         and dockerhub_token
         and dockerhub_username
         and dltc_workhouse_directory
@@ -59,11 +59,11 @@ def load_env_vars(env_file: str) -> EnvVars:
             f"The workhouse directory '{dltc_workhouse_directory}' does not exist. Please provide a valid directory."
         )
 
-    dltc_biblio_local_path = f"{dltc_workhouse_directory}/{dltc_biblio}"
+    dltc_biblio_local_path = f"{dltc_workhouse_directory}/{bibliography_base_filename}"
 
     if not os.path.exists(dltc_biblio_local_path):
         raise FileNotFoundError(
-            f"The bibliography file '{dltc_biblio}' does not exist in '{dltc_workhouse_directory}'."
+            f"The bibliography file '{bibliography_base_filename}' does not exist in '{dltc_workhouse_directory}'."
         )
 
     dltc_ref_pipe_local_path = f"{dltc_workhouse_directory}/{ref_pipe_dir_relative_path}"
@@ -78,7 +78,7 @@ def load_env_vars(env_file: str) -> EnvVars:
 
     return EnvVars(
         ARCH=arch,
-        DLTC_BIBLIO=dltc_biblio,
+        BIBLIOGRAPHY_BASE_FILENAME=bibliography_base_filename,
         DOCKERHUB_TOKEN=dockerhub_token,
         DOCKERHUB_USERNAME=dockerhub_username,
         DLTC_WORKHOUSE_DIRECTORY=dltc_workhouse_directory,

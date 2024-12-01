@@ -1,13 +1,12 @@
 from dataclasses import dataclass
 import os
-from typing import FrozenSet, Iterator, Literal
+from typing import Dict, FrozenSet, Iterator, Literal, NamedTuple, Tuple
 
 from src.sdk.utils import dump_frozenset
 from src.sdk.ResultMonad import Err, Ok
 
 
-@dataclass(frozen=True, slots=True)
-class EnvVars:
+class EnvVars(NamedTuple):
     """
     Environment variables required for the ref_pipe project.
 
@@ -15,7 +14,7 @@ class EnvVars:
     ----------
     `ARCH`: str
         Architecture of the system. Must be either 'amd64' or 'arm64'.
-    `DLTC_BIBLIO`: str
+    `BIBLIOGRAPHY_BASE_FILENAME`: str
         Basename of the bibliography file, directly inside the DLTC_WORKHOUSE_DIRECTORY.
     `DOCKERHUB_TOKEN`: str
         Token for DockerHub.
@@ -36,7 +35,7 @@ class EnvVars:
     """
 
     ARCH: str
-    DLTC_BIBLIO: str
+    BIBLIOGRAPHY_BASE_FILENAME: str
     DOCKERHUB_TOKEN: str
     DOCKERHUB_USERNAME: str
     DLTC_WORKHOUSE_DIRECTORY: str
@@ -116,8 +115,11 @@ class File:
         return os.path.join(relative_dir, self.basename)
 
 
-@dataclass(frozen=True, slots=True)
-class Markdown:
+class BibentityHTMLRawFile(NamedTuple):
+    local_path: str
+
+
+class Markdown(NamedTuple):
     """
     Markdown files for a bibliographic entity.
 
@@ -142,28 +144,25 @@ class Markdown:
     master_file: File
 
 
-@dataclass(frozen=True, slots=True)
-class BibEntityWithMD(BibEntity):
-    markdown: Markdown
-
-
-@dataclass(frozen=True, slots=True)
-class BibEntityWithRawHTML(BibEntityWithMD):
-    raw_html_filename: str
-
-
-@dataclass(frozen=True, slots=True)
-class RefHTML:
+class RefHTML(NamedTuple):
     references_filename: str
     further_references_filename: str = ""
-    dependencies_filename: str = ""
 
 
 @dataclass(frozen=True, slots=True)
-class BibEntityWithHTML(BibEntityWithRawHTML):
+class BibEntityWithHTML(BibEntity):
     html: RefHTML
 
 
-type TMDReport = Iterator[tuple[BibEntity, Ok[BibEntityWithMD] | Err]]
+class BibDiv(NamedTuple):
+    div_id: str
+    content: str
+
 
 type THTMLReport = Iterator[tuple[BibEntity, Ok[BibEntityWithHTML] | Err]]
+
+
+class Bibliography(NamedTuple):
+    bibkeys: FrozenSet[str]
+    bibkey_index_dict: Dict[str, int]
+    content: Tuple[str, ...]
