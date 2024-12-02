@@ -42,7 +42,7 @@ The following dictionary maps the attributes of the external CSV file to the att
 EXTERNAL_COLUMN: Dict[TSupportedEntity, Dict[TBibEntityAttribute, str]] = {
     "profile": {
         "id": "id",
-        "entity_key": "biblio_name",
+        "entity_key": "profile_name",
         "url_endpoint": "login",
         "main_bibkeys": "biblio_keys",
         "further_references": "biblio_keys_further_references",

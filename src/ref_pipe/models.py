@@ -74,7 +74,7 @@ class BibEntity:
     `id`: str
         ID in the database.
     `entity_key`: str
-        biblio_name for profiles, bibkey for articles.
+        profile_name for profiles, bibkey for articles.
     `url_endpoint`: str
         URL endpoint that refers to the bibliographic entity. For example, 'urlname' for pages, 'login' for profiles.
     `main_bibkeys`: set[str]
