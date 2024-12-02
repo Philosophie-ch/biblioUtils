@@ -7,7 +7,6 @@ import polars as pl
 
 from pathlib import Path
 from typing import Dict, FrozenSet, Generator, NamedTuple, Tuple
-from types import MappingProxyType
 from src.sdk.ResultMonad import light_error_handler, main_try_except_wrapper
 from src.sdk.utils import get_logger, lginf, remove_extra_whitespace
 from src.utils.bibkey_utils import validate_bibkeys
