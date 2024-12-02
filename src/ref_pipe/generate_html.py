@@ -30,7 +30,7 @@ def gen_html_files(bibentity: BibEntity, bibdivs: Tuple[BibDiv, ...], output_bas
         if not os.path.exists(main_bibkeys_filename):
             msg = f"The main references HTML file '{main_bibkeys_filename}' was not generated for '{bibentity.entity_key}'. Exiting."
             raise FileNotFoundError(msg)
-    
+
     else:
         # Skip if there are no main references
         lginf(frame, f"Note: no main references found for '{bibentity.entity_key}'.", lgr)

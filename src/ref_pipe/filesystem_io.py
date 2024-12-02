@@ -2,7 +2,7 @@ import csv
 import os
 from pathlib import Path
 from typing import Dict, FrozenSet, Tuple
-from src.ref_pipe.bibkey_utils import BibkeyError, parse_bibkey, validate_bibkeys
+from src.ref_pipe.bibkey_utils import load_validate_bibliography_bibkeys, validate_bibkeys
 from src.sdk.ResultMonad import Err, Ok, runwrap, runwrap_or, try_except_wrapper
 from src.sdk.utils import get_logger, lginf, remove_extra_whitespace, pretty_format_frozenset
 from src.ref_pipe.models import (
@@ -129,7 +129,6 @@ def process_raw_bibentity(raw_bibentity: RawBibEntity, bibliography: Bibliograph
     # lgr.info(f"further_references: {pretty_format_frozenset(further_references)}")
     # lgr.info(f"depends_on: {pretty_format_frozenset(depends_on)}")
 
-
     # Sanitize bibkeys
     bibentity_bibkeys = main_bibkeys | further_references | depends_on
 
@@ -154,7 +153,9 @@ def process_raw_bibentity(raw_bibentity: RawBibEntity, bibliography: Bibliograph
 
 
 @try_except_wrapper(lgr)
-def load_bibentities(input_file: str, encoding: str, entity_type: TSupportedEntity, bibliography: Bibliography) -> tuple[BibEntity, ...]:
+def load_bibentities(
+    input_file: str, encoding: str, entity_type: TSupportedEntity, bibliography: Bibliography
+) -> tuple[BibEntity, ...]:
 
     frame = f"load_bibentities"
 
@@ -183,13 +184,6 @@ def load_bibentities(input_file: str, encoding: str, entity_type: TSupportedEnti
     return tuple(process_raw_bibentity(raw_bibentity, bibliography) for raw_bibentity in raw_bibentities)
 
 
-def _extract_bibkey(line: str) -> str:
-    bracket_split = line.split("{")
-    comma_split = bracket_split[1].split(",")
-    bibkey = comma_split[0]
-    return remove_extra_whitespace(bibkey)
-
-
 @try_except_wrapper(lgr)
 def load_bibliography(bibliography_file: str) -> Bibliography:
 
@@ -200,31 +194,7 @@ def load_bibliography(bibliography_file: str) -> Bibliography:
         msg = f"The bibliography file '{bibliography_file}' does not exist."
         raise FileNotFoundError(msg)
 
-    with open(bibliography_file, "r") as f:
-        bibkey_linenum_d = {_extract_bibkey(line): i for i, line in enumerate(f.readlines())}
-
-    with open(bibliography_file, "r") as f:
-        bibkeys = frozenset({_extract_bibkey(line) for line in f.readlines()})
-
-
-    with open(bibliography_file, "r") as f:
-        bibliography_len = len(f.readlines())
-
-    bibkeys_len = len(bibkeys)
-
-    # Sanitize bibliography
-    if bibkeys_len != len(bibkey_linenum_d):
-        raise ValueError(
-            f"The number of bibkeys and the number of line numbers should be the same. This means that bibkeys are not unique. Found {len(bibkeys)} bibkeys but {len(bibkey_linenum_d)} line numbers in the bibliography. Fix the consistency of your bibliography and try again."
-        )
-
-    if bibkeys_len != bibliography_len:
-        raise ValueError(
-            f"The number of bibkeys ({bibkeys_len}) should be the same as the number of lines in the bibliography ({bibliography_len}). This means that some lines didn't contain bibkeys at all, or your bibliography file is not a valid bib file. Fix the consistency of your bibliography and try again."
-        )
-
-    # Assert that all bibkeys have the standard structure
-    validate_bibkeys(bibkeys, bibkey_linenum_d)
+    bibkeys, bibkey_linenum_d = load_validate_bibliography_bibkeys(bibliography_file)
 
     with open(bibliography_file, "r") as f:
         content_tuple = tuple(f.readlines())

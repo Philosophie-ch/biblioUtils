@@ -1,5 +1,5 @@
 from logging import Logger
-from typing import Any, Callable, Generic, TypeVar
+from typing import Any, Callable, Generic, Literal, TypeVar
 from pydantic import BaseModel, ConfigDict
 from functools import wraps
 
@@ -230,3 +230,59 @@ def funwrap(func: Callable[..., Ok[T] | Err]) -> Callable[..., T | Err]:
                 raise ValueError(f"Function '{func.__name__}' returned an unknown Result type, with value '{result}'.")
 
     return wrapper
+
+
+def main_try_except_wrapper(logger: Logger) -> Callable[[Callable[..., T]], Callable[..., Ok[T] | Err]]:
+    """
+    Decorator that wraps a function in a try-except block, logging any errors that occur. The wrapped function will then always return a Ok[T] or Err as output.
+    """
+
+    def decorator(func: Callable[..., T]) -> Callable[..., Ok[T] | Err]:
+        @wraps(func)
+        def wrapper(*args: Any, **kwargs: Any) -> Ok[T] | Err:
+            try:
+                result = func(*args, **kwargs)
+
+                match result:
+                    case Err(message=msg, code=code):
+                        return result
+                    case Ok():
+                        return result
+                    case _:
+                        return Ok(out=result)
+
+            except Exception as e:
+                error_message_logger = f"'{func.__name__}':\n{e}"
+                logger.error(error_message_logger)
+
+                error_message_return = f"'{func.__name__}': {e}"
+                return Err(message=error_message_return, code=-1)
+
+        return wrapper
+
+    return decorator
+
+
+def light_error_handler(debug: bool = False) -> Callable[[Callable[..., T]], Callable[..., T]]:
+    """
+    Decorator that wraps a function in a try-except block, and returns a better error message if an exception is raised.
+    """
+
+    def decorator(func: Callable[..., T]) -> Callable[..., T]:
+        @wraps(func)
+        def wrapper(*args: Any, **kwargs: Any) -> T:
+            try:
+                return func(*args, **kwargs)
+
+            except Exception as e:
+                if not debug:
+                    error_message = f"An error occurred in function '{func.__name__}'. {e.__class__.__name__}: {e}"
+
+                else:
+                    error_message = f"An error occured in function '{func.__name__}', called with...\n\targs: [[ {args} ]]\n\tkwargs: [[ {kwargs} ]]\n\n{e.__class__.__name__}: {e}"
+
+                raise Exception(error_message)
+
+        return wrapper
+
+    return decorator

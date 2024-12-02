@@ -82,7 +82,6 @@ def main_process_local(
         load_bibentities(input_csv, encoding, entity_type, bibliography)
     )  # TODO: abstract away from CSV in particular, inject from outside
 
-
     # 2. Main processing
     bibentities_with_htmls = [
         ref_pipe(

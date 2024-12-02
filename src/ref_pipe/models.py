@@ -163,6 +163,19 @@ type THTMLReport = Iterator[tuple[BibEntity, Ok[BibEntityWithHTML] | Err]]
 
 
 class Bibliography(NamedTuple):
+    """
+    Model representing the part of the bibliography we need for this project.
+
+    Attributes:
+    ----------
+    `bibkeys`: FrozenSet[str]
+        Set of bibliographic keys. Must be one per line of the bibliography bib file.
+    `bibkey_index_dict`: Dict[str, int]
+        Dictionary with the index of each bibkey in the content tuple.
+    `content`: Tuple[str, ...]
+        Tuple in which each element is a line of the bibliography bib file.
+    """
+
     bibkeys: FrozenSet[str]
     bibkey_index_dict: Dict[str, int]
     content: Tuple[str, ...]

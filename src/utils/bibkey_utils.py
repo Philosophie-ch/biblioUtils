@@ -14,14 +14,16 @@ class Bibkey(NamedTuple):
 
 class BibkeyError(NamedTuple):
     text: str
-    position: int
     error: str
+    position: int | None = None
 
     def __str__(self) -> str:
+        if self.position is None:
+            return f"'{self.text}' --- '{self.error}'"
         return f"'{self.text}' at line {self.position} --- '{self.error}'"
 
 
-def parse_bibkey(text: str, text_position_d: dict[str, int]) -> Bibkey | BibkeyError:
+def parse_bibkey(text: str, text_position_d: dict[str, int] | None = None) -> Bibkey | BibkeyError:
     """
     Return either a Bibkey object, or a BibkeyError object to indicate a parsing error.
     """
@@ -87,16 +89,23 @@ def parse_bibkey(text: str, text_position_d: dict[str, int]) -> Bibkey | BibkeyE
             )
 
     except ValueError as e:
-        return BibkeyError(text, text_position_d[text] + 1, str(e))
+        if text_position_d is None:
+            return BibkeyError(text, str(e))
+        return BibkeyError(text, str(e), text_position_d[text] + 1)
 
 
-def validate_bibkeys(bibkeys: Iterable[str], bibkey_position_d: dict[str, int]) -> None:
+def validate_bibkeys(bibkeys: Iterable[str], bibkey_position_d: dict[str, int] | None = None) -> None:
     """
     Validates an array of bibkeys. Raises a ValueError if any of them is invalid.
     """
 
-    parse_result = tuple(parse_bibkey(bk, bibkey_position_d) for bk in bibkeys)
-    error_results = tuple(r for r in parse_result if isinstance(r, BibkeyError))
+    # 1. Validate uniqueness of bibkeys
+    if len(tuple(bibkeys)) != len(set(bibkeys)):
+        raise ValueError("Bibkeys are not unique.")
+
+    # 2. Validate the structure of each bibkey
+    parse_result = frozenset(parse_bibkey(bk, bibkey_position_d) for bk in bibkeys)
+    error_results = frozenset(r for r in parse_result if isinstance(r, BibkeyError))
 
     if error_results:
         error_results_str = "\n".join(str(error_result) for error_result in error_results)
@@ -113,7 +122,7 @@ def _extract_bibkey(line: str) -> str:
     return remove_extra_whitespace(bibkey)
 
 
-def load_validate_bibliography_bibkeys(bibliography_file: str) -> tuple[frozenset[str], dict[str, int]]:
+def validate_bibliography(bibliography_file: str) -> tuple[frozenset[str], dict[str, int]]:
     with open(bibliography_file, "r") as f:
         bibkey_linenum_d = {_extract_bibkey(line): i for i, line in enumerate(f.readlines())}
 
