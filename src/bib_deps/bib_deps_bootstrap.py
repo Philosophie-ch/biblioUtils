@@ -177,7 +177,7 @@ def main_bootstrap(filename: str, encoding: str | None, output_filename: str) ->
             }
             for row in processed_rows
         )
-        
+
         writer = csv.DictWriter(f, fieldnames=fieldnames)
         writer.writeheader()
         writer.writerows(result_evaluated)

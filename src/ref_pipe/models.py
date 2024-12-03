@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 import os
-from typing import Dict, FrozenSet, Iterator, Literal, NamedTuple, Tuple
+from typing import Dict, FrozenSet, Generator, Iterator, Literal, NamedTuple, Tuple
 
 from src.sdk.utils import dump_frozenset
 from src.sdk.ResultMonad import Err, Ok
@@ -159,7 +159,7 @@ class BibDiv(NamedTuple):
     content: str
 
 
-type THTMLReport = Iterator[tuple[BibEntity, Ok[BibEntityWithHTML] | Err]]
+type THTMLReport = Generator[tuple[BibEntity, Ok[BibEntityWithHTML] | Err], None, None]
 
 
 class Bibliography(NamedTuple):

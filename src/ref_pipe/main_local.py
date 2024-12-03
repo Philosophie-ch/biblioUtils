@@ -78,30 +78,23 @@ def main_process_local(
     bibliography = runwrap(load_bibliography(local_bibliography_filepth))
 
     ## 1.6 Load the bibentities
-    bibentities = runwrap(
-        load_bibentities(input_csv, encoding, entity_type, bibliography)
-    )  # TODO: abstract away from CSV in particular, inject from outside
+    bibentities = runwrap(load_bibentities(input_csv, encoding, entity_type, bibliography))
 
-    # 2. Main processing
-    bibentities_with_htmls = [
-        ref_pipe(
+    ## 2. Main processing
+    result = (
+        (
             bibentity,
-            bibliography,
-            local_base_dir,
-            container_base_dir,
-            relative_output_dir,
-            container_name,
+            ref_pipe(bibentity, bibliography, local_base_dir, container_base_dir, relative_output_dir, container_name),
         )
         for bibentity in bibentities
-    ]
+    )
 
     # 3. Cleanup
     csl_cleanup_result = restore_csl_file(v.CSL_FILE)
     if isinstance(csl_cleanup_result, Err):
-        # Don't fail the whole process if the CSL file could not be restored, just log the error
         lgr.warning(f"Error restoring the CSL file '{v.CSL_FILE}': {csl_cleanup_result.message}")
 
-    return zip(bibentities, bibentities_with_htmls)
+    return result
 
 
 def cli_main_process_local() -> None:
@@ -125,18 +118,12 @@ def cli_main_process_local() -> None:
 
     parser.add_argument("-v", "--env_file", type=str, help="Path to the environment file.", required=True)
 
-    parser.add_argument(
-        "-o",
-        "--report-output-folder",
-        type=str,
-        help="The folder where to save the report files. Default is the current directory.",
-        default=f"{os.getcwd()}/data",
-    )
+    parser.add_argument("-o", "--output-filename", type=str, help="The name of the output file.", required=True)
 
     args = parser.parse_args()
 
     curried_gen_report: Callable[[THTMLReport], Ok[None] | Err] = lambda out: generate_report_for_html_files(
-        out, args.report_output_folder, args.encoding
+        out, args.output_filename, args.encoding
     )
 
     rbind(

@@ -207,20 +207,18 @@ def load_bibliography(bibliography_file: str) -> Bibliography:
 
 
 @try_except_wrapper(lgr)
-def generate_report_for_html_files(main_output: THTMLReport, output_folder: str, encoding: str) -> None:
+def generate_report_for_html_files(main_output: THTMLReport, output_filename: str, encoding: str) -> None:
 
     frame = f"generate_report_for_html_files"
     lginf(frame, f"Generating report for the markdown file generation...", lgr)
 
-    os.makedirs(output_folder, exist_ok=True)
-    report_filename = f"{output_folder}/ref_pipe_report.csv"
-
-    with open(report_filename, "w", encoding=encoding) as f:
+    with open(output_filename, "w", encoding=encoding) as f:
         writer = csv.writer(f, quotechar='"')
         writer.writerow(
             [
                 "id",
                 "entity_key",
+                "url_endpoint",
                 "main_bibkeys",
                 "further_references",
                 "depends_on",
@@ -232,13 +230,13 @@ def generate_report_for_html_files(main_output: THTMLReport, output_folder: str,
             ]
         )
 
-        for entity, write_result in main_output:
+        for entity, pipe_result in main_output:
             references_html_file = ""
             further_references_html_file = ""
             status = ""
             err_msg = ""
 
-            match write_result:
+            match pipe_result:
                 case Ok(out=out_e):
                     if out_e.entity_key != entity.entity_key:
                         status = "error"
@@ -259,6 +257,7 @@ def generate_report_for_html_files(main_output: THTMLReport, output_folder: str,
                 [
                     entity.id,
                     entity.entity_key,
+                    entity.url_endpoint,
                     pretty_format_frozenset(entity.main_bibkeys),
                     pretty_format_frozenset(entity.further_references),
                     pretty_format_frozenset(entity.depends_on),
@@ -270,6 +269,6 @@ def generate_report_for_html_files(main_output: THTMLReport, output_folder: str,
                 ]
             )
 
-    lginf(frame, f"Success! Report written to {report_filename}.", lgr)
+    lginf(frame, f"Success! Report written to {output_filename}.", lgr)
 
     return None
