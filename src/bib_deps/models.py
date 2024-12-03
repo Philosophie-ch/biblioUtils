@@ -42,6 +42,21 @@ class ProcessedBibEntry(BaseBibEntry):
     status: Status
     error_message: str = ""
 
+    def dict_dump(self) -> dict[str, str]:
+        return {
+            "bibkey": f"{self.bibkey}",
+            "title": f"{self.title}",
+            "notes": f"{self.notes}",
+            "crossref": f"{self.crossref}",
+            "further_note": f"{self.further_note}",
+            "further_references_good": f"{self.further_references_good}",
+            "further_references_bad": f"{self.further_references_bad}",
+            "depends_on_good": f"{self.depends_on_good}",
+            "depends_on_bad": f"{self.depends_on_bad}",
+            "status": f"{self.status}",
+            "error_message": f"{self.error_message}",
+        }
+
 
 type CitetField = Literal[
     # For further_references

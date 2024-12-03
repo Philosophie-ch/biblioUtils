@@ -11,7 +11,7 @@ import csv
 
 from src.bib_deps.data_repository import load_bibentries
 from src.bib_deps.models import BaseBibEntry, CitetResults, CitetField, ParsedBibEntry, ProcessedBibEntry
-from src.sdk.ResultMonad import Err, Ok, rbind, runwrap, try_except_wrapper
+from src.sdk.ResultMonad import Err, runwrap, try_except_wrapper
 from src.sdk.utils import get_logger, lginf, remove_extra_whitespace
 
 
@@ -160,9 +160,27 @@ def main_bootstrap(filename: str, encoding: str | None, output_filename: str) ->
 
     lginf(frame, f"Writing the output to '{output_filename}' [5/5]", lgr)
     with open(output_filename, 'w', encoding=encoding) as f:
+
+        result_evaluated = tuple(
+            {
+                "bibkey": row.bibkey,
+                "title": row.title,
+                "notes": row.notes,
+                "crossref": row.crossref,
+                "further_note": row.further_note,
+                "further_references_good": row.further_references_good,
+                "further_references_bad": row.further_references_bad,
+                "depends_on_good": row.depends_on_good,
+                "depends_on_bad": row.depends_on_bad,
+                "status": row.status,
+                "error_message": row.error_message,
+            }
+            for row in processed_rows
+        )
+        
         writer = csv.DictWriter(f, fieldnames=fieldnames)
         writer.writeheader()
-        writer.writerows(row.dict_dump() for row in processed_rows)
+        writer.writerows(result_evaluated)
 
     end_datetime = datetime.now()
     total_time = end_datetime - start_datetime
@@ -182,10 +200,10 @@ def cli_main_bootstrap() -> None:
     parser = argparse.ArgumentParser(description="Process a CSV file with BibTeX entries")
 
     parser.add_argument(
-        "-i",
-        "--input-csv",
+        "-b",
+        "--bibliography-file",
         type=str,
-        help="The CSV file to process. Needs to have the following columns: 'bibkey', 'title', 'notes', 'crossref', 'further_note'.",
+        help="The bibliography file to process. Needs to be in table format and have the following columns: 'bibkey', 'title', 'notes', 'crossref', 'further_note'.",
         required=True,
     )
 
@@ -195,7 +213,11 @@ def cli_main_bootstrap() -> None:
 
     args = parser.parse_args()
 
-    main_bootstrap(args.input_csv, args.encoding, args.output_filename)
+    main_bootstrap(
+        filename=args.bibliography_file,
+        encoding=args.encoding,
+        output_filename=args.output_filename,
+    )
 
 
 if __name__ == "__main__":
