@@ -8,7 +8,7 @@ packages = ["src"]
 [project]
 name = "biblioUtils"
 description = "Utilities for the management and improvement of the bibliography of Philosophie.ch"
-version = "2024.1.0"
+version = "2025.0.1"
 requires-python = ">=3.13"
 readme = "README.md"
 authors = [
@@ -19,6 +19,7 @@ maintainers = [
 ]
 
 dependencies = [
+  "aletk", 
   "titlecase",
   "pydantic",
   "requests", 
@@ -32,6 +33,7 @@ dependencies = [
   "mistune",
   "polars",
   "fastexcel",
+  "habanero",
 ]
 
 [project.optional-dependencies]
@@ -41,7 +43,9 @@ dev = [
     "black",
     "black[jupyter]",
     "jupyter",
+    "faker",
     "types-beautifulsoup4",
+    "types-PyYAML",
 ]
 
 [tool.mypy]
@@ -61,7 +65,8 @@ module = [
     "TexSoup",
     "TexSoup.data",
     "pylatexenc",
-    "pylatexenc.latex2text", 
+    "pylatexenc.latex2text",
+    "habanero",      
 ]
 ignore_missing_imports = true
 

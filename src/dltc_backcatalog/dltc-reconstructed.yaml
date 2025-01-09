@@ -1,0 +1,66 @@
+volume: 74
+issue: 1
+date: March 2020
+first-page: 1
+doi: 10.48106/dial.v74.i1
+issnprint: 0012-2017
+issuetitle: The Formalization of Arguments
+issueeditor:
+- Michels, Robert
+articles:
+- title: Editorial
+  subtitle: "*Dialectica* Goes Open Access"
+  first-page: 1
+  last-page: 2
+  doi: 10.48106/dial.v74.i1.01
+  author:
+  - name: Philipp Blum 
+    email: "philipp.blum@philosophie.ch"
+    institute:
+    - University of Lucern
+    ORCID: 0009-0007-2821-8203
+    correspondence: true
+  galleys:
+  - blum2020a.pdf
+- title: The Personalized A-Theory of Time and Perspective
+  first-page: 3
+  last-page: 31
+  doi: 10.48106/dial.v74.i1.02
+  abstract: |
+    A-theorists and B-theorists debate whether the "Now" is metaphysically distinguished from other time slices. Analogously, one may ask whether the "I" is metaphysically distinguished from other perspectives. Few philosophers would answer the second question in the affirmative. An exception is Caspar Hare, who has devoted two papers and a book to arguing for such a positive answer. In this paper, I argue that those who answer the first question in the affirmative---A-theorists--- should also answer the second question in the affirmative. This is because key arguments in favor of the A-theory are more effective as arguments in favor of the resulting combined position, and key arguments against the A-theory are ineffective against the combined position.
+  author:
+  - name: Vincent Conitzer 
+    email: "conitzer@cs.duke.edu"
+    institute:
+    - Duke University
+    ORCID: 0000-0003-1899-7884
+    correspondence: true
+  galleys:
+  - 
+  keywords:
+  - metaphysics
+  - philosophy of time
+  - philosophy of self
+- title: Determinism, "Ought" Implies "Can" and Moral Obligation
+  first-page: 33
+  last-page: 61
+  doi: 10.48106/dial.v74.i1.03
+  abstract: |
+    Haji argues that determinism threatens deontic morality, not via a threat to moral responsibility, but directly, because of the principle that "ought" implies "can". Haji's argument requires not only that we embrace an "ought" implies "can" principle, but also that we adopt the principle that "ought" implies "able not to". I argue that we have little reason to adopt the latter principle, and examine whether deontic morality might be destroyed on the basis of the more commonly embraced "ought" implies "can" principle alone. I argue that despite what look like initially compelling reasons why we might suppose that this weaker conclusion is similarly destructive to deontic morality, we actually have good reason to doubt that it has any practical relevance for moral deliberation at all.
+  author:
+  - name: Nadine Elzein 
+    email: "nadine.elzein@warwick.ac.uk"
+    institute:
+    - University of Warwick
+    ORCID: 0000-0003-0312-2233
+    correspondence: true
+  galleys:
+  - 
+  keywords:
+  - deontic morality
+  - determinism
+  - free will
+  - moral responsibility
+  - obligation
+  - ought implies able not to
+  - ought implies can
