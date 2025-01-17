@@ -107,53 +107,53 @@ def parse_editor_name(author_name_raw: str) -> Tuple[TGivenName, TFamilyName]:
         print(f"Warning: could not parse author name '{author_name_raw}'. Skipping.")
         return "", ""
 
-def read_journal_issue_from_yaml(filename: str, journal: str) -> JournalIssue:
+#def read_journal_issue_from_yaml(filename: str, journal: str) -> JournalIssue:
 
-    yaml: Dict[str, str | Dict[str, str | Dict[str, str]]] = load(open(filename, 'r'), Loader=Loader)
+    #yaml: Dict[str, str | Dict[str, str | Dict[str, str]]] = load(open(filename, 'r'), Loader=Loader)
 
-    month, year = parse_month_year(yaml.get('date', ""))
+    #month, year = parse_month_year(yaml.get('date', ""))
 
-    journal_issue = JournalIssue(
-        journal=journal,
-        volume=yaml.get('volume', ""),
-        issue=yaml.get('issue', ""),
-        month=month,
-        year=year,
-        first_page=int(yaml.get('first-page', "")),
-        doi=yaml.get('doi', ""),
-        issn=yaml.get('issn', ""),
-        issnprint=yaml.get('issnprint', ""),
-        title=yaml.get('issuetitle', ""),
+    #journal_issue = JournalIssue(
+        #journal=journal,
+        #volume=yaml.get('volume', ""),
+        #issue=yaml.get('issue', ""),
+        #month=month,
+        #year=year,
+        #first_page=int(yaml.get('first-page', "")),
+        #doi=yaml.get('doi', ""),
+        #issn=yaml.get('issn', ""),
+        #issnprint=yaml.get('issnprint', ""),
+        #title=yaml.get('issuetitle', ""),
 
-        editors=[Author(
-            given_name=parse_editor_name(editor)[0],
-            family_name=parse_editor_name(editor)[1],
-            correspondence=False,
-            email='',
-            institute='',
-            orcid=''
-        ) for editor in yaml.get('issueeditor', "")],
+        #editors=[Author(
+            #given_name=parse_editor_name(editor)[0],
+            #family_name=parse_editor_name(editor)[1],
+            #correspondence=False,
+            #email='',
+            #institute='',
+            #orcid=''
+        #) for editor in yaml.get('issueeditor', "")],
 
-        articles=[Article(
-            title=article.get('title', ""),
-            subtitle=article.get('subtitle', ""),
-            abstract=remove_extra_whitespace(article.get('abstract', "")),
-            authors=[Author(
-                given_name=(author.get('name', "")),
-                family_name="",
-                correspondence=author.get('correspondence', ""),
-                email=author.get('email', ""),
-                institute=author.get('institute', [""])[0],
-                orcid=author.get('ORCID', "")
-            ) for author in article['author']],
+        #articles=[Article(
+            #title=article.get('title', ""),
+            #subtitle=article.get('subtitle', ""),
+            #abstract=remove_extra_whitespace(article.get('abstract', "")),
+            #authors=[Author(
+                #given_name=(author.get('name', "")),
+                #family_name="",
+                #correspondence=author.get('correspondence', ""),
+                #email=author.get('email', ""),
+                #institute=author.get('institute', [""])[0],
+                #orcid=author.get('ORCID', "")
+            #) for author in article['author']],
 
-            first_page=article.get('first-page', ""),
-            last_page=article.get('last-page', ""),
-            doi=article.get('doi', ""),
-            galleys=article.get('galleys', [""])[0],
-            keywords=[keyword for keyword in article.get('keywords', [])]
+            #first_page=article.get('first-page', ""),
+            #last_page=article.get('last-page', ""),
+            #doi=article.get('doi', ""),
+            #galleys=article.get('galleys', [""])[0],
+            #keywords=[keyword for keyword in article.get('keywords', [])]
 
-        ) for article in yaml['articles']]
-    )
+        #) for article in yaml['articles']]
+    #)
 
-    return journal_issue
+    #return journal_issue
