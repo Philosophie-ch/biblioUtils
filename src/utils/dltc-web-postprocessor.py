@@ -2,8 +2,8 @@ import os
 from typing import Callable, Generator, NamedTuple
 from bs4 import BeautifulSoup, Tag
 
-from src.sdk.ResultMonad import light_error_handler, main_try_except_wrapper
-from src.sdk.utils import get_logger, lginf
+from aletk.ResultMonad import light_error_handler, main_try_except_wrapper
+from aletk.utils import get_logger, lginf
 
 
 lgr = get_logger("DLTC Web Postprocessor")
