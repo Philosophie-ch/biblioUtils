@@ -12,33 +12,27 @@ from aletk.ResultMonad import try_except_wrapper
 lgr = get_logger("Data Repository")
 
 # Logic
-import polars as pl
-from typing import Tuple
-
 def check_substrings(string_to_match: str, strings: Tuple[str, ...], string_to_match_index: int | None) -> str:
-    # Convert string_to_match to lowercase for case-insensitive matching
-    string_to_match_lower = string_to_match.lower()
 
-    # Create a Polars DataFrame from the list of strings
     df = pl.DataFrame({"strings": list(strings)})
 
-    # Use `.str.contains` to check if `string_to_match` is a substring (case-insensitive)
+    if string_to_match_index is not None:
+        # Take out the string to match from the list
+        df = df.slice(0, string_to_match_index).vstack(df.slice(string_to_match_index + 1))
+
+    # Use .str.contains to check if string_to_match is a substring 
     matches = df.with_columns(
-        pl.col("strings").str.to_lowercase().str.contains(string_to_match_lower).alias("match")
+        pl.col("strings").str.contains(string_to_match, literal=True).alias("match")
     )
 
-    # Get the indices where the "match" is True
-    indices = matches.filter(pl.col("match")).select(pl.col("strings").alias("index"))
+    matched_strings = matches.filter(pl.col("match")).select("strings")
+    result_strings = matched_strings["strings"].to_list()
 
-    # Delete the row corresponding to string_to_match_index if it is not None
-    if string_to_match_index is not None:
-        indices = indices.filter(pl.col("index") != strings[string_to_match_index])
+    result = ", ".join(result_strings) if result_strings else ""
 
-    # Extract and collect the indices as a list
-    result_indices = indices.select(pl.col("index").alias("index")).to_series()
+    # Return a comma-separated string of matches, or "" if no matches
+    return result
 
-    # Return the indices as a comma-separated string
-    return ", ".join(map(str, result_indices))
 
 def check_substrings_pure(string_to_match: str, strings: Iterable[str], string_to_match_index: int | None) -> str:
     """
@@ -69,24 +63,11 @@ def load_data(
     """
 
     file_path = Path(filename)
-    extension = file_path.suffix
 
-    match extension:
-        case ".txt":
-            with open(file_path, "r") as file:
-                data = tuple(
-                    line.strip() for line in file
-                )
-
-        case ".csv":
-            import csv
-
-            with open(file_path, "r") as file:
-                reader = csv.reader(file)
-                data = tuple(row[0] for row in reader)
-
-        case _:
-            raise ValueError(f"File format '{extension}' not supported.")
+    with open(file_path, "r") as file:
+        data = tuple(
+            line.strip() for line in file
+        )
 
     return data
 
@@ -113,16 +94,20 @@ def main(
     Main process.
     """
 
+    lgr.info(f"Reading data from {input_filename}...")
     data = tuple(load_data(input_filename))
 
+    lgr.info("Computing generator...")
     result = (
        check_substrings(
             string, data, index
         ) for index, string in enumerate(data)
     )
 
-    # Write the output
+    lgr.info(f"Streaming result generator to {output_filename}...")
     write_output(output_filename, result)
+
+    lgr.info("Done!")
 
 
 # Primary side
