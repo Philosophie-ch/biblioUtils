@@ -12,7 +12,7 @@ from aletk.ResultMonad import try_except_wrapper
 lgr = get_logger("Data Repository")
 
 # Logic
-def check_substrings(string_to_match: str, strings: Tuple[str, ...], string_to_match_index: int | None) -> str:
+def check_substrings_pl(string_to_match: str, strings: Tuple[str, ...], string_to_match_index: int | None) -> str:
 
     df = pl.DataFrame({"strings": list(strings)})
 
@@ -23,7 +23,7 @@ def check_substrings(string_to_match: str, strings: Tuple[str, ...], string_to_m
     # Use .str.contains to check if string_to_match is a substring 
     matches = df.with_columns(
         pl.col("strings").str.contains(string_to_match, literal=True).alias("match")
-    )
+    )  # this thing omits trailing whitespace even if you say "literal=True"
 
     matched_strings = matches.filter(pl.col("match")).select("strings")
     result_strings = matched_strings["strings"].to_list()
@@ -34,22 +34,24 @@ def check_substrings(string_to_match: str, strings: Tuple[str, ...], string_to_m
     return result
 
 
-def check_substrings_pure(string_to_match: str, strings: Iterable[str], string_to_match_index: int | None) -> str:
+def check_substrings(string_to_match: str, data: Tuple[str, ...], string_to_match_index: int | None) -> str:
     """
     Returns the indices of the strings in the tuple that contain the substring.
     """
 
     if string_to_match_index is not None:
+        if string_to_match_index == 1:
+            lgr.info(f"string to match: [[{repr(string_to_match)}]]")
         # Take out the string to match from the list
-        array_to_match = list(strings)[0:string_to_match_index] + list(strings)[string_to_match_index+1:]
+        array_data = data[0:string_to_match_index] + data[string_to_match_index+1:]
     else:
-        array_to_match = list(strings)
+        array_data = data
         
-    indices = tuple(
-        index for index, string in enumerate(array_to_match) if string_to_match in string
+    results = (
+        matched for matched in array_data if string_to_match in matched
     )
 
-    result = ", ".join(f"{index}" for index in indices)
+    result = ", ".join(f"{string}" for string in results)
 
     return result
 
@@ -87,24 +89,28 @@ def write_output(
 # Main process
 @try_except_wrapper(lgr)
 def main(
-    input_filename: str,
+    strings_filename: str,
+    strings_to_match_filename: str,
     output_filename: str,
 ) -> None:
     """
     Main process.
     """
 
-    lgr.info(f"Reading data from {input_filename}...")
-    data = tuple(load_data(input_filename))
+    lgr.info(f"Reading data from {strings_filename}...")
+    data = tuple(load_data(strings_filename))
+    strings_to_match = tuple(load_data(strings_to_match_filename))
 
     lgr.info("Computing generator...")
     result = (
        check_substrings(
-            string, data, index
-        ) for index, string in enumerate(data)
+           string_to_match=string,
+           data=data,
+           string_to_match_index=index
+        ) for index, string in enumerate(strings_to_match)
     )
 
-    lgr.info(f"Streaming result generator to {output_filename}...")
+    lgr.info(f"Streaming result to {output_filename}...")
     write_output(output_filename, result)
 
     lgr.info("Done!")
@@ -117,11 +123,19 @@ def cli() -> None:
     parser = argparse.ArgumentParser(description="Check for substrings in a list of strings.")
 
     parser.add_argument(
-        "-i",
-        "--input-filename",
+        "-s",
+        "--strings-filename",
         type=str,
         required=True,
-        help="The input filename.",
+        help="The filename of the file containing the strings to match. One string per line.",
+    )
+
+    parser.add_argument(
+        "-m",
+        "--strings-to-match-filename",
+        type=str,
+        required=True,
+        help="The filename of the file containing the strings to match. One string per line. For the indices to work, it has to be a subset of the strings in the first file, starting at the same index.",
     )
 
     parser.add_argument(
@@ -134,7 +148,12 @@ def cli() -> None:
 
     args = parser.parse_args()
 
-    main(args.input_filename, args.output_filename)
+    main(
+        strings_filename = args.strings_filename,
+        strings_to_match_filename = args.strings_to_match_filename,
+        output_filename = args.output_filename,
+    )
+
 
 
 if __name__ == "__main__":
