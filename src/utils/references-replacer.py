@@ -26,7 +26,10 @@ def preprocess_html(html: str) -> str:
     """
     Preprocess html content by removing extra whitespace (new lines, tabs, multiple spaces in a row, etc.), and then adding back newlines after closing div tags.
     """
-    return remove_extra_whitespace(html).replace('</div>', '</div>\n')
+    force_format = remove_extra_whitespace(html).replace('</div>', '</div>\n')
+    divs = force_format.split('\n')
+    return '\n'.join((remove_extra_whitespace(div) for div in divs))
+
 
 type TReplacementItem = Tuple[
     str, # original
@@ -34,7 +37,6 @@ type TReplacementItem = Tuple[
 ]
 
 type TReplacementTable = Tuple[TReplacementItem, ...]
-
 
 def load_replacement_table(csv_filename: str, encoding: str) -> TReplacementTable:
     """
