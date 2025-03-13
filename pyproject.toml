@@ -19,7 +19,7 @@ maintainers = [
 ]
 
 dependencies = [
-  "aletk", 
+  "aletk>=0.1.6", 
   "titlecase",
   "pydantic",
   "requests", 

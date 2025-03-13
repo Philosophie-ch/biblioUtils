@@ -1,10 +1,11 @@
 import csv
 from pathlib import Path
+import traceback
 from typing import List
 import polars as pl
 
-from src.sdk.ResultMonad import Err, Ok
-from src.sdk.utils import get_logger, remove_extra_whitespace
+from aletk.ResultMonad import Err, Ok
+from aletk.utils import get_logger, remove_extra_whitespace
 
 
 # Define here the delimiter used to separate nameblocks in the raw_nameblocks column
@@ -51,7 +52,7 @@ def read_replacement_table(replacement_table_file: str, encoding: str) -> dict[s
 
         case ".csv":
             with open(replacement_table_file, "r", encoding=encoding) as f:
-                reader = csv.DictReader(f)
+                reader = csv.reader(f)
                 replacement_table = {f"{row[0]}": f"{row[1]}" for row in reader}
 
         case ".ods":
@@ -92,12 +93,16 @@ def read_raw_nameblocks(input_file: str, column_name: str, encoding: str) -> Lis
 
 def main(input_file: str, replacement_table_file: str, column_name: str, encoding: str) -> Ok[str] | Err:
     try:
+        lgr.info(f"Reading replacement table from {replacement_table_file}")
         replacement_table = read_replacement_table(replacement_table_file, encoding)
-
+        
+        lgr.info(f"Reading raw nameblocks from {input_file}")
         replaced_nameblocks_buffer = []
 
+        lgr.info(f"Reading raw nameblocks from {input_file}")
         raw_nameblocks_list = read_raw_nameblocks(input_file, column_name, encoding)
 
+        lgr.info(f"Replacing nameblocks")
         for raw_nameblocks in raw_nameblocks_list:
             nameblocks = raw_nameblock_parser(raw_nameblocks)
             replaced_nameblocks = []
@@ -117,12 +122,25 @@ def main(input_file: str, replacement_table_file: str, column_name: str, encodin
             raw_nameblocks_replaced = nameblock_formatter(replaced_nameblocks)
             replaced_nameblocks_buffer.append(f"{raw_nameblocks_replaced}\t{' -- '.join(not_found_nameblocks)}")
 
+        lgr.info(f"Formatting result")
         result = "\n".join(replaced_nameblocks_buffer)
 
+        lgr.info(f"Done")
         return Ok(out=result)
 
     except Exception as e:
-        return Err(message=f"Unexpected error: {e}", code=-1)
+        print(
+            f"\tmessage: Unexpected error: {e}\n" +
+            f"\tcode: -1\n" +
+            f"\terror_type: {e.__class__.__name__}\n" +
+            f"\terror_trace: {traceback.format_exc()}\n"
+        )
+        return Err(
+            message=f"Unexpected error: {e}",
+            code=-1,
+            error_type=f"{e.__class__.__name__}", 
+            error_trace=f"{traceback.format_exc()}",
+            )
 
 
 def cli_presenter(result: Ok[str] | Err) -> None:
@@ -132,8 +150,8 @@ def cli_presenter(result: Ok[str] | Err) -> None:
         case Ok(out=out):
             print(out)
 
-        case Err(message=message, code=code):
-            print(message)
+        case Err():
+            print(result)
 
 
 if __name__ == "__main__":
@@ -162,7 +180,13 @@ if __name__ == "__main__":
         help="The name of the column in the CSV or ODS file that contains the raw nameblocks you want to replace.",
         required=True,
     )
-    parser.add_argument("-e", "--encoding", type=str, help="The encoding of the CSV file.", required=True)
+    parser.add_argument(
+        "-e",
+        "--encoding",
+        type=str,
+        help="The encoding of the CSV file.",
+        required=True
+    )
 
     args = parser.parse_args()
 
