@@ -95,7 +95,7 @@ def main(input_file: str, replacement_table_file: str, column_name: str, encodin
     try:
         lgr.info(f"Reading replacement table from {replacement_table_file}")
         replacement_table = read_replacement_table(replacement_table_file, encoding)
-        
+
         lgr.info(f"Reading raw nameblocks from {input_file}")
         replaced_nameblocks_buffer = []
 
@@ -130,17 +130,17 @@ def main(input_file: str, replacement_table_file: str, column_name: str, encodin
 
     except Exception as e:
         print(
-            f"\tmessage: Unexpected error: {e}\n" +
-            f"\tcode: -1\n" +
-            f"\terror_type: {e.__class__.__name__}\n" +
-            f"\terror_trace: {traceback.format_exc()}\n"
+            f"\tmessage: Unexpected error: {e}\n"
+            + f"\tcode: -1\n"
+            + f"\terror_type: {e.__class__.__name__}\n"
+            + f"\terror_trace: {traceback.format_exc()}\n"
         )
         return Err(
             message=f"Unexpected error: {e}",
             code=-1,
-            error_type=f"{e.__class__.__name__}", 
+            error_type=f"{e.__class__.__name__}",
             error_trace=f"{traceback.format_exc()}",
-            )
+        )
 
 
 def cli_presenter(result: Ok[str] | Err) -> None:
@@ -180,13 +180,7 @@ if __name__ == "__main__":
         help="The name of the column in the CSV or ODS file that contains the raw nameblocks you want to replace.",
         required=True,
     )
-    parser.add_argument(
-        "-e",
-        "--encoding",
-        type=str,
-        help="The encoding of the CSV file.",
-        required=True
-    )
+    parser.add_argument("-e", "--encoding", type=str, help="The encoding of the CSV file.", required=True)
 
     args = parser.parse_args()
 

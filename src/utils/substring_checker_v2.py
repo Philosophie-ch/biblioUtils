@@ -2,7 +2,6 @@
 For every string in a tuple, checks if it is a substring of all other elements of the tuple, giving the indices of the elements that contain the substring.
 """
 
-
 import polars as pl
 from pathlib import Path
 from typing import Generator, Iterable, Tuple
@@ -10,6 +9,7 @@ from aletk.utils import get_logger
 from aletk.ResultMonad import try_except_wrapper
 
 lgr = get_logger("Data Repository")
+
 
 # Logic
 def check_substrings_pl(string_to_match: str, strings: Tuple[str, ...], string_to_match_index: int | None) -> str:
@@ -20,7 +20,7 @@ def check_substrings_pl(string_to_match: str, strings: Tuple[str, ...], string_t
         # Take out the string to match from the list
         df = df.slice(0, string_to_match_index).vstack(df.slice(string_to_match_index + 1))
 
-    # Use .str.contains to check if string_to_match is a substring 
+    # Use .str.contains to check if string_to_match is a substring
     matches = df.with_columns(
         pl.col("strings").str.contains(string_to_match, literal=True).alias("match")
     )  # this thing omits trailing whitespace even if you say "literal=True"
@@ -43,13 +43,11 @@ def check_substrings(string_to_match: str, data: Tuple[str, ...], string_to_matc
         if string_to_match_index == 1:
             lgr.info(f"string to match: [[{repr(string_to_match)}]]")
         # Take out the string to match from the list
-        array_data = data[0:string_to_match_index] + data[string_to_match_index+1:]
+        array_data = data[0:string_to_match_index] + data[string_to_match_index + 1 :]
     else:
         array_data = data
-        
-    results = (
-        matched for matched in array_data if string_to_match in matched
-    )
+
+    results = (matched for matched in array_data if string_to_match in matched)
 
     result = ", ".join(f"{string}" for string in results)
 
@@ -57,9 +55,7 @@ def check_substrings(string_to_match: str, data: Tuple[str, ...], string_to_matc
 
 
 # Secondary side
-def load_data(
-    filename: str
-) -> Tuple[str, ...]:
+def load_data(filename: str) -> Tuple[str, ...]:
     """
     Loads the data from the file and returns it as a tuple of strings.
     """
@@ -67,11 +63,10 @@ def load_data(
     file_path = Path(filename)
 
     with open(file_path, "r") as file:
-        data = tuple(
-            "".join(line.split("\n")) for line in file
-        )
+        data = tuple("".join(line.split("\n")) for line in file)
 
     return data
+
 
 def write_output(
     filename: str,
@@ -103,11 +98,8 @@ def main(
 
     lgr.info("Computing generator...")
     result = (
-       check_substrings(
-           string_to_match=string,
-           data=data,
-           string_to_match_index=index
-        ) for index, string in enumerate(strings_to_match)
+        check_substrings(string_to_match=string, data=data, string_to_match_index=index)
+        for index, string in enumerate(strings_to_match)
     )
 
     lgr.info(f"Streaming result to {output_filename}...")
@@ -149,11 +141,10 @@ def cli() -> None:
     args = parser.parse_args()
 
     main(
-        strings_filename = args.strings_filename,
-        strings_to_match_filename = args.strings_to_match_filename,
-        output_filename = args.output_filename,
+        strings_filename=args.strings_filename,
+        strings_to_match_filename=args.strings_to_match_filename,
+        output_filename=args.output_filename,
     )
-
 
 
 if __name__ == "__main__":

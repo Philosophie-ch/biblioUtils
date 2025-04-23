@@ -31,12 +31,10 @@ def preprocess_html(html: str) -> str:
     return '\n'.join((remove_extra_whitespace(div) for div in divs))
 
 
-type TReplacementItem = Tuple[
-    str, # original
-    str  # replacement
-]
+type TReplacementItem = Tuple[str, str]  # original  # replacement
 
 type TReplacementTable = Tuple[TReplacementItem, ...]
+
 
 def load_replacement_table(csv_filename: str, encoding: str) -> TReplacementTable:
     """
@@ -45,7 +43,7 @@ def load_replacement_table(csv_filename: str, encoding: str) -> TReplacementTabl
     with open(csv_filename, 'r', encoding=encoding) as f:
         reader = csv.DictReader(f)
         return tuple((f"{row['original']}", f"{row['replacement']}") for row in reader)
-        
+
 
 # Composite logic
 @dataclass(frozen=True, slots=True)
@@ -53,6 +51,7 @@ class TReplaceStringsResult:
     was_changed: bool
     new_html: str
     replacements_used: FrozenSet[str]
+
 
 def replace_strings(
     html_content: str,
@@ -72,13 +71,11 @@ def replace_strings(
             was_changed = True
             preprocessed_html = new_html
             replacements_used_l.append(original)
-        
+
     return TReplaceStringsResult(
-        was_changed=was_changed,
-        new_html=preprocessed_html,
-        replacements_used=frozenset(replacements_used_l)
+        was_changed=was_changed, new_html=preprocessed_html, replacements_used=frozenset(replacements_used_l)
     )
-    
+
 
 # Primary side
 def save_content(filename: str, content: str) -> None:
@@ -94,14 +91,14 @@ def main(
     encoding: str,
 ) -> None:
 
-    lgr.info(f"Replacing strings in HTML files in '{html_filenames_root_dir}' according to the replacement table '{replacement_table_csv}'.")
+    lgr.info(
+        f"Replacing strings in HTML files in '{html_filenames_root_dir}' according to the replacement table '{replacement_table_csv}'."
+    )
 
     if not Path(html_filenames_root_dir).exists():
         raise FileNotFoundError(f"The root directory '{html_filenames_root_dir}' does not exist.")
 
-    html_filenames = tuple(
-        f"{file}" for file in Path(html_filenames_root_dir).rglob("*.html")
-        )
+    html_filenames = tuple(f"{file}" for file in Path(html_filenames_root_dir).rglob("*.html"))
     lgr.info(f"Found {len(html_filenames)} HTML files.")
 
     lgr.info(f"Loading replacement table from '{replacement_table_csv}'...")
@@ -157,14 +154,11 @@ def cli() -> None:
     args = parser.parse_args()
 
     main(
-        html_filenames_root_dir = args.html_filenames_root_dir,
-        replacement_table_csv = args.replacement_table_csv,
-        encoding = args.encoding,
+        html_filenames_root_dir=args.html_filenames_root_dir,
+        replacement_table_csv=args.replacement_table_csv,
+        encoding=args.encoding,
     )
 
 
 if __name__ == "__main__":
     cli()
-
-
-

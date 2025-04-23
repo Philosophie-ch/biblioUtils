@@ -7,6 +7,7 @@ type TEmailAddress = str
 
 type TCrossrefCredentials = Tuple[TEmailAddress,]
 
+
 def get_crossref_client(crossref_credentials: TCrossrefCredentials) -> Ok[Crossref] | Err:
     """
     Initializes a Crossref client using the "polite" pool. For this, you need to provide an email address.
