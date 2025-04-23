@@ -191,8 +191,8 @@ type TResultDict = Dict[
 
 def validate_output_path(output_file: str) -> Path:
     path = Path(output_file)
-    if not path.exists():
-        raise FileNotFoundError("The output file does not exist.")
+    # if not path.exists():
+    # raise FileNotFoundError("The output file does not exist.")
 
     extension = path.suffix
     if extension != ".csv":

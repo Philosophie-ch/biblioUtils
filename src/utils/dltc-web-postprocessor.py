@@ -120,7 +120,7 @@ def filesystem_content_reader(input_dirname: str) -> TProcessInput:
 
     if missing_files != frozenset():
         raise FileNotFoundError(f"The following input files were not found: {missing_files}")
-    
+
     lginf(frame, f"Reading {len(file_paths)} files from {input_dirname}", lgr)
 
     process_input = (read_file(file_path) for file_path in file_paths)

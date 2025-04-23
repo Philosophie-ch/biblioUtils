@@ -5,6 +5,7 @@ from typing import List
 type TGivenName = str
 type TFamilyName = str
 
+
 @dataclass(frozen=True, slots=True)
 class Author:
     given_name: TGivenName
@@ -13,6 +14,7 @@ class Author:
     email: str
     institute: str
     orcid: str
+
 
 def author_full_name(author: Author) -> str:
     return f"{author.family_name}, {author.given_name}"
@@ -31,9 +33,9 @@ class Article:
     keywords: List[str]
 
 
-
 type TMonth = int
 type TYear = int
+
 
 @dataclass(frozen=True, slots=True)
 class JournalIssue:
@@ -49,6 +51,7 @@ class JournalIssue:
     title: str
     editors: List[Author]
     articles: List[Article]
+
 
 MONTH_STR_INT = {
     "January": 1,
@@ -67,7 +70,7 @@ MONTH_STR_INT = {
 
 MONTH_INT_STR = {v: k for k, v in MONTH_STR_INT.items()}
 
+
 def journal_date(journal_issue: JournalIssue) -> str:
     month = MONTH_INT_STR[journal_issue.month]
     return f"{month} {journal_issue.year}"
-
