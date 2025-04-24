@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 import os
-from typing import Dict, FrozenSet, Generator, Iterator, Literal, NamedTuple, Tuple
+from typing import Dict, FrozenSet, Generator, Literal, NamedTuple, Tuple
 
 from src.sdk.utils import dump_frozenset
 from src.sdk.ResultMonad import Err, Ok
@@ -45,14 +45,15 @@ class EnvVars(NamedTuple):
     DOCKER_CONTAINER_NAME: str
     DOCKER_COMPOSE_FILE: str
     CSL_FILE: str
+    BIBLIOGRAPHY_TABLE_ODS: str
 
     @classmethod
     def attribute_names(self) -> str:
         return ", ".join(self.__annotations__.keys())
 
 
-SUPPORTED_ENTITY_TYPES = ("profile", "article")
-type TSupportedEntity = Literal["profile", "article"]
+SUPPORTED_ENTITY_TYPES = ("profile", "article", "journal")
+type TSupportedEntity = Literal["profile", "article", "journal"]
 
 type TBibEntityAttribute = Literal[
     "id",
@@ -179,3 +180,25 @@ class Bibliography(NamedTuple):
     bibkeys: FrozenSet[str]
     bibkey_index_dict: Dict[str, int]
     content: Tuple[str, ...]
+
+
+
+### HTML Collapsible Structure
+type TBibkey = str
+
+@dataclass(frozen=False, slots=True)
+class HTMLIssue:
+    name: str
+    contents: Tuple[TBibkey, ...]
+
+@dataclass(frozen=False, slots=True)
+class HTMLVolume:
+    name: str
+    contents: Tuple[HTMLIssue | TBibkey, ...]
+
+@dataclass(frozen=False, slots=True)
+class HTMLYear:
+    name: str
+    contents: Tuple[HTMLVolume | TBibkey, ...]
+
+type THTMLCollapsible = Tuple[HTMLYear, ...]

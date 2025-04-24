@@ -1,13 +1,21 @@
-import os
 from typing import Callable
-from src.ref_pipe.generate_html import gen_html_files
+from src.ref_pipe.preprocessors import prepare_bib_df, preprocess_bibentities
+from src.ref_pipe.html_io import gen_html_files
 from src.ref_pipe.prep_divs import gen_bib_html_divs
-from src.ref_pipe.models import BibEntity, BibEntityWithHTML, Bibliography, THTMLReport, TSupportedEntity
+from src.ref_pipe.models import (
+    SUPPORTED_ENTITY_TYPES,
+    BibEntity,
+    BibEntityWithHTML,
+    Bibliography,
+    THTMLReport,
+    TSupportedEntity,
+)
 from src.sdk.utils import get_logger
 from src.sdk.ResultMonad import Err, Ok, rbind, runwrap, try_except_wrapper
 
 from src.ref_pipe.setup import dltc_env_up, load_env_vars, override_csl_file, restore_csl_file
 from src.ref_pipe.filesystem_io import generate_report_for_html_files, load_bibentities, load_bibliography
+import polars as pl
 
 
 lgr = get_logger("Main Local")
@@ -21,6 +29,8 @@ def ref_pipe(
     container_base_dir: str,
     relative_output_dir: str,
     container_name: str,
+    entity_type: TSupportedEntity,
+    bib_df: pl.DataFrame | None,
 ) -> BibEntityWithHTML:
 
     # 1. Prepare divs for the bibentity
@@ -41,6 +51,9 @@ def ref_pipe(
             bibentity,
             bibdivs,
             f"{local_base_dir}/{relative_output_dir}",
+            entity_type,
+            bib_df,
+            bibliography,
         )
     )
 
@@ -78,13 +91,28 @@ def main_process_local(
     bibliography = runwrap(load_bibliography(local_bibliography_filepth))
 
     ## 1.6 Load the bibentities
-    bibentities = runwrap(load_bibentities(input_csv, encoding, entity_type, bibliography))
+    bibentities_raw = runwrap(load_bibentities(input_csv, encoding, entity_type, bibliography))
+
+    ## 1.7 Pre-process the bibentities
+    bibliography_table_file = v.BIBLIOGRAPHY_TABLE_ODS
+    bibentities, bib_df = runwrap(preprocess_bibentities(bibliography_table_file, bibentities_raw, entity_type))
+
+    prepared_df = prepare_bib_df(bib_df)
 
     ## 2. Main processing
     result = (
         (
             bibentity,
-            ref_pipe(bibentity, bibliography, local_base_dir, container_base_dir, relative_output_dir, container_name),
+            ref_pipe(
+                bibentity,
+                bibliography,
+                local_base_dir,
+                container_base_dir,
+                relative_output_dir,
+                container_name,
+                entity_type,
+                prepared_df,
+            ),
         )
         for bibentity in bibentities
     )
@@ -112,13 +140,11 @@ def cli_main_process_local() -> None:
         "-t",
         "--entity-type",
         type=str,
-        help="The type of the entity to process. Must be one of 'profile' or 'article'.",
+        help=f"The type of the entity to process. Must be one of: {", ".join(SUPPORTED_ENTITY_TYPES)}.",
         required=True,
     )
 
     parser.add_argument("-v", "--env_file", type=str, help="Path to the environment file.", required=True)
-
-    parser.add_argument("-o", "--output-filename", type=str, help="The name of the output file.", required=True)
 
     args = parser.parse_args()
 
