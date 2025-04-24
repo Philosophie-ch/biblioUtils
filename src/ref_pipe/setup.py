@@ -31,6 +31,7 @@ def load_env_vars(env_file: str) -> EnvVars:
     docker_container_name = os.getenv("DOCKER_CONTAINER_NAME")
     docker_compose_file = os.getenv("DOCKER_COMPOSE_FILE")
     csl_file = os.getenv("CSL_FILE")
+    bibliography_table_ods = os.getenv("BIBLIOGRAPHY_TABLE_ODS")
 
     if not (
         arch
@@ -44,6 +45,7 @@ def load_env_vars(env_file: str) -> EnvVars:
         and docker_container_name
         and docker_compose_file
         and csl_file
+        and bibliography_table_ods
     ):
         raise ValueError(
             f"The '.env' file must contain the following environment variables: {EnvVars.attribute_names()}."
@@ -76,6 +78,16 @@ def load_env_vars(env_file: str) -> EnvVars:
             f"The reference pipeline directory '{dltc_ref_pipe_local_path}' does not exist. Please provide a valid directory."
         )
 
+    # Check if the CSL file exists
+    if not os.path.exists(csl_file):
+        raise FileNotFoundError(f"The CSL file '{csl_file}' does not exist. Please provide a valid file.")
+
+    # Check if the bibliography table ODS file exists
+    if not os.path.exists(bibliography_table_ods):
+        raise FileNotFoundError(
+            f"The bibliography table ODS file '{bibliography_table_ods}' does not exist. Please provide a valid file."
+        )
+
     return EnvVars(
         ARCH=arch,
         BIBLIOGRAPHY_BASE_FILENAME=bibliography_base_filename,
@@ -88,6 +100,7 @@ def load_env_vars(env_file: str) -> EnvVars:
         DOCKER_CONTAINER_NAME=docker_container_name,
         DOCKER_COMPOSE_FILE=docker_compose_file,
         CSL_FILE=csl_file,
+        BIBLIOGRAPHY_TABLE_ODS=bibliography_table_ods,
     )
 
 

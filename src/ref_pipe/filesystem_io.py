@@ -56,6 +56,14 @@ EXTERNAL_COLUMN: Dict[TSupportedEntity, Dict[TBibEntityAttribute, str]] = {
         "further_references": "_further_refs",
         "depends_on": "_depends_on",
     },
+    "journal": {
+        "id": "id",
+        "entity_key": "journal_key",
+        "url_endpoint": "journal_key",
+        "main_bibkeys": "ref_bib_keys",
+        "further_references": "_further_refs",
+        "depends_on": "_depends_on",
+    },
 }
 
 
@@ -89,25 +97,14 @@ def load_raw_bibentities_csv(input_file: str, encoding: str, entity_type: TSuppo
     depends_on_column = EXTERNAL_COLUMN[entity_type]["depends_on"]
 
     for row in rows:
-        # Sanitize inputs
-        main_bibkeys = runwrap(extract_bibkeys(row[main_bibkeys_column]))
-        further_references_raw = runwrap_or(extract_bibkeys(row[further_references_column]), frozenset())
-        depends_on_raw = runwrap_or(extract_bibkeys(row[depends_on_column]), frozenset())
-
         output.append(
             (
-                f"{row[
-                    id_column
-                ]}",
-                f"{row[
-                    entity_key_column
-                ]}",
-                f"{row[
-                    url_endpoint_column
-                ]}",
-                main_bibkeys,
-                further_references_raw,
-                depends_on_raw,
+                f"{row[id_column]}",
+                f"{row[entity_key_column]}",
+                f"{row[url_endpoint_column]}",
+                runwrap(extract_bibkeys(row[main_bibkeys_column])),
+                runwrap_or(extract_bibkeys(row[further_references_column]), frozenset()),
+                runwrap_or(extract_bibkeys(row[depends_on_column]), frozenset()),
             )
         )
 
@@ -115,7 +112,14 @@ def load_raw_bibentities_csv(input_file: str, encoding: str, entity_type: TSuppo
 
 
 def process_raw_bibentity(raw_bibentity: RawBibEntity, bibliography: Bibliography) -> BibEntity:
-    bib_id, entity_key, url_endpoint, main_bibkeys, further_references_raw, depends_on_raw = raw_bibentity
+    (
+        bib_id,
+        entity_key,
+        url_endpoint,
+        main_bibkeys,
+        further_references_raw,
+        depends_on_raw,
+    ) = raw_bibentity
 
     # lgr.info(f"main_bibkeys: {pretty_format_frozenset(main_bibkeys)}")
     # lgr.info(f"further_references_raw: {pretty_format_frozenset(further_references_raw)}")
@@ -155,7 +159,7 @@ def process_raw_bibentity(raw_bibentity: RawBibEntity, bibliography: Bibliograph
 @try_except_wrapper(lgr)
 def load_bibentities(
     input_file: str, encoding: str, entity_type: TSupportedEntity, bibliography: Bibliography
-) -> tuple[BibEntity, ...]:
+) -> Tuple[BibEntity, ...]:
 
     frame = f"load_bibentities"
 
