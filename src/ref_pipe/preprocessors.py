@@ -35,6 +35,7 @@ def _preprocess_journal(bib_df: pl.DataFrame, raw_journal: BibEntity) -> BibEnti
         depends_on=raw_journal.depends_on,
     )
 
+
 @try_except_wrapper(lgr)
 def preprocess_bibentities(
     bibliography_file: str, raw_bibentities: Tuple[BibEntity, ...], entity_type: TSupportedEntity
@@ -43,7 +44,6 @@ def preprocess_bibentities(
     Preprocess the raw bibentities to ensure they are in the correct format.
     """
     # Load the bibliography CSV file into a Polars DataFrame
-    
 
     # Preprocess the raw bibentities
     match entity_type:
@@ -69,7 +69,7 @@ def preprocess_bibentities(
 
 
 def prepare_bib_df(
-        bib_df: pl.DataFrame | None,
+    bib_df: pl.DataFrame | None,
 ) -> pl.DataFrame | None:
 
     if not bib_df:
@@ -78,16 +78,17 @@ def prepare_bib_df(
     # Remove duplicates on 'bibkey'
     df = (
         bib_df.unique(subset=["bibkey"], keep="first")
-        .select([
-            "bibkey",
-            "title",
-            "authors",
-            "journal",
-            "date"
-            "volume",
-            "number",
-            "pages",
-        ])
+        .select(
+            [
+                "bibkey",
+                "title",
+                "authors",
+                "journal",
+                "date" "volume",
+                "number",
+                "pages",
+            ]
+        )
         .with_columns(
             [
                 # Process the 'pages' column to extract start and end pages
@@ -111,6 +112,11 @@ def prepare_bib_df(
         )
     )
 
-    sorted_df = df.sort('start_int', nulls_last=True).sort("number", descending=True).sort('volume', descending=True).sort('date', descending=True)
+    sorted_df = (
+        df.sort('start_int', nulls_last=True)
+        .sort("number", descending=True)
+        .sort('volume', descending=True)
+        .sort('date', descending=True)
+    )
 
     return sorted_df
