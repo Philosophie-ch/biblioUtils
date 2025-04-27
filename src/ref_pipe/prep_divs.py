@@ -6,7 +6,7 @@ from bs4 import BeautifulSoup, Tag
 
 from src.sdk.utils import get_logger, lginf
 from src.sdk.ResultMonad import runwrap, try_except_wrapper
-from src.ref_pipe.models import BibDiv, BibentityHTMLRawFile, Bibliography, File, BibEntity, Markdown
+from src.ref_pipe.models import BibDiv, BibentityHTMLRawFile, Bibliography, File, BibEntity, Markdown, TBibDivDict
 
 
 lgr = get_logger("Prepare Divs")
@@ -287,7 +287,7 @@ def gen_bib_html_divs(
     container_base_dir: str,
     relative_output_dir: str,
     container_name: str,
-) -> Tuple[BibDiv, ...]:
+) -> TBibDivDict:
 
     try:
         frame = f"gen_bib_html_divs"
@@ -297,7 +297,7 @@ def gen_bib_html_divs(
 
         if main_bibkeys == frozenset():
             # Skip if there are no main bibkeys
-            return tuple()
+            return {}
 
         html_bib_file = runwrap(
             gen_raw_html_file(
@@ -310,11 +310,12 @@ def gen_bib_html_divs(
             )
         )
 
-        bibdivs = tuple(div for div in runwrap(extract_divs(html_bib_file)))
+        # bibdivs = tuple(div for div in runwrap(extract_divs(html_bib_file)))
+        bibdivs_dict = {div.div_id: div.content for div in runwrap(extract_divs(html_bib_file))}
 
         lginf(frame, f"Divs generated successfully for {bibentity.entity_key}.", lgr)
 
-        return bibdivs
+        return bibdivs_dict
 
     finally:
         # re-craft filenames in case of error

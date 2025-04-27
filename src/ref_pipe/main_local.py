@@ -34,7 +34,7 @@ def ref_pipe(
 ) -> BibEntityWithHTML:
 
     # 1. Prepare divs for the bibentity
-    bibdivs = runwrap(
+    bibdiv_dict = runwrap(
         gen_bib_html_divs(
             bibentity,
             bibliography,
@@ -49,7 +49,7 @@ def ref_pipe(
     bibentity_with_html = runwrap(
         gen_html_files(
             bibentity,
-            bibdivs,
+            bibdiv_dict,
             f"{local_base_dir}/{relative_output_dir}",
             entity_type,
             bib_df,

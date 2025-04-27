@@ -160,6 +160,12 @@ class BibDiv(NamedTuple):
     content: str
 
 
+type TBibkey = str
+type TBibDiv = str
+
+type TBibDivDict = Dict[TBibkey, TBibDiv]
+
+
 type THTMLReport = Generator[tuple[BibEntity, Ok[BibEntityWithHTML] | Err], None, None]
 
 
@@ -182,23 +188,23 @@ class Bibliography(NamedTuple):
     content: Tuple[str, ...]
 
 
-
 ### HTML Collapsible Structure
-type TBibkey = str
-
 @dataclass(frozen=False, slots=True)
 class HTMLIssue:
     name: str
     contents: Tuple[TBibkey, ...]
+
 
 @dataclass(frozen=False, slots=True)
 class HTMLVolume:
     name: str
     contents: Tuple[HTMLIssue | TBibkey, ...]
 
+
 @dataclass(frozen=False, slots=True)
 class HTMLYear:
     name: str
     contents: Tuple[HTMLVolume | TBibkey, ...]
+
 
 type THTMLCollapsible = Tuple[HTMLYear, ...]
