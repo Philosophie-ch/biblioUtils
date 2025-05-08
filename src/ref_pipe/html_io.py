@@ -179,6 +179,7 @@ COLLAPSIBLE_ISSUE_HTML_FORMAT = """
 </details>
 """
 
+
 def generate_struct_html(
     struct: THTMLCollapsible,
     bibdiv_dict: TBibDivDict,
@@ -222,31 +223,23 @@ def generate_struct_html(
                                 continue
                             issue_html_contents += bibdiv
                             issue_html_contents += "\n"
-                        
+
                         issue_html = COLLAPSIBLE_ISSUE_HTML_FORMAT.format(
-                            name=vol_content.name,
-                            contents=issue_html_contents
+                            name=vol_content.name, contents=issue_html_contents
                         )
                         vol_html_contents += issue_html
                         vol_html_contents += "\n"
                     else:
                         raise ValueError(f"Unknown content type for volume content: {type(vol_content)}")
 
-                volume_html = COLLAPSIBLE_VOLUME_HTML_FORMAT.format(
-                    name=year_content.name,
-                    contents=vol_html_contents
-                )
+                volume_html = COLLAPSIBLE_VOLUME_HTML_FORMAT.format(name=year_content.name, contents=vol_html_contents)
                 year_html_contents += volume_html
                 year_html_contents += "\n"
 
             else:
                 raise ValueError(f"Unknown content type for year content: {type(year_content)}")
 
-
-        year_html = COLLAPSIBLE_YEAR_HTML_FORMAT.format(
-            name=year.name,
-            contents=year_html_contents
-        )
+        year_html = COLLAPSIBLE_YEAR_HTML_FORMAT.format(name=year.name, contents=year_html_contents)
         main_html += year_html
         main_html += "\n"
 
@@ -282,7 +275,9 @@ def gen_journal_html_file(
         f.write("\n")
 
     if not os.path.exists(journal_html_filename):
-        msg = f"The journal HTML file '{journal_html_filename}' was not generated for '{bibentity.entity_key}'. Exiting."
+        msg = (
+            f"The journal HTML file '{journal_html_filename}' was not generated for '{bibentity.entity_key}'. Exiting."
+        )
         raise FileNotFoundError(msg)
 
     lginf(
