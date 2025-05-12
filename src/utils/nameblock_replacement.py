@@ -76,6 +76,10 @@ def read_raw_nameblocks(input_file: str, column_name: str, encoding: str) -> Lis
     extension = path.suffix
 
     match extension:
+        case ".txt":
+            with open(input_file, "r", encoding=encoding) as f:
+                raw_nameblocks = [line.strip() for line in f.readlines()]
+
         case ".csv":
             with open(input_file, "r", encoding=encoding) as f:
                 reader = csv.DictReader(f)
@@ -91,16 +95,16 @@ def read_raw_nameblocks(input_file: str, column_name: str, encoding: str) -> Lis
     return raw_nameblocks
 
 
-def main(input_file: str, replacement_table_file: str, column_name: str, encoding: str) -> Ok[str] | Err:
+def main(input_file: str, replacement_table_file: str, column_name: str, encoding1: str, encoding2: str) -> Ok[str] | Err:
     try:
         lgr.info(f"Reading replacement table from {replacement_table_file}")
-        replacement_table = read_replacement_table(replacement_table_file, encoding)
+        replacement_table = read_replacement_table(replacement_table_file, encoding2)
 
         lgr.info(f"Reading raw nameblocks from {input_file}")
         replaced_nameblocks_buffer = []
 
         lgr.info(f"Reading raw nameblocks from {input_file}")
-        raw_nameblocks_list = read_raw_nameblocks(input_file, column_name, encoding)
+        raw_nameblocks_list = read_raw_nameblocks(input_file, column_name, encoding1)
 
         lgr.info(f"Replacing nameblocks")
         for raw_nameblocks in raw_nameblocks_list:
@@ -163,7 +167,7 @@ if __name__ == "__main__":
         "-i",
         "--input",
         type=str,
-        help="Input CSV file. Must have a column 'raw_nameblocks' with the nameblocks to be replaced.",
+        help="Input CSV, ODS, or TXT file. Must have a column 'raw_nameblocks' with the nameblocks to be replaced.",
         required=True,
     )
     parser.add_argument(
@@ -180,7 +184,8 @@ if __name__ == "__main__":
         help="The name of the column in the CSV or ODS file that contains the raw nameblocks you want to replace.",
         required=True,
     )
-    parser.add_argument("-e", "--encoding", type=str, help="The encoding of the CSV file.", required=True)
+    parser.add_argument("-e1", "--encoding1", type=str, help="The encoding of the input file.", required=True)
+    parser.add_argument("-e2", "--encoding2", type=str, help="The encoding of the replacement table file.", required=True)
 
     args = parser.parse_args()
 
@@ -189,6 +194,7 @@ if __name__ == "__main__":
             input_file=args.input,
             replacement_table_file=args.replacement_table,
             column_name=args.column_name,
-            encoding=args.encoding,
+            encoding1=args.encoding1,
+            encoding2=args.encoding2,
         )
     )
