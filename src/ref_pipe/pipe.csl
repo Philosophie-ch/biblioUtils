@@ -151,7 +151,7 @@
   </macro>
   <macro name="contributors-short">
     <names variable="author">
-      <name form="short" and="text" delimiter=", " initialize-with=". " delimiter-precedes-last="never" name-as-sort-order="all"/>
+      <name form="short" and="text" delimiter=", " initialize-with="." delimiter-precedes-last="never" name-as-sort-order="all"/>
       <substitute>
         <names variable="editor"/>
         <names variable="translator"/>
@@ -320,7 +320,9 @@
           </else-if>
           <else>
             <date variable="issued" prefix=", ">
-              <date-part name="month"/>
+              <date-part name="day" suffix="."/>
+              <date-part name="month" form="numeric" suffix="."/>
+              <date-part name="year"/>
             </date>
           </else>
         </choose>
