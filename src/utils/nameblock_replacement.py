@@ -9,7 +9,7 @@ from aletk.utils import get_logger, remove_extra_whitespace
 
 
 # Define here the delimiter used to separate nameblocks in the raw_nameblocks column
-RAW_NAMEBLOCKS_DELIMITER = " and "
+RAW_NAMEBLOCKS_DELIMITER = ""  # Leave empty to not split the raw nameblocks
 PROCESSED_NAMEBLOCKS_DELIMITER = ", "
 
 lgr = get_logger(__name__)
@@ -19,7 +19,7 @@ def raw_nameblock_parser(raw_nameblocks: str) -> List[str]:
     """
     Nameblocks have this structure: "Lastname, Firstname and Lastname2, Firstname2 and Lastname3, Firstname3 ...". The parser splits this string into a list of strings, where each string is a nameblock.
     """
-    split = raw_nameblocks.split(RAW_NAMEBLOCKS_DELIMITER)
+    split = raw_nameblocks.split(RAW_NAMEBLOCKS_DELIMITER) if RAW_NAMEBLOCKS_DELIMITER else [raw_nameblocks]
     stripped = [remove_extra_whitespace(name) for name in split]
     return stripped
 
@@ -167,7 +167,7 @@ if __name__ == "__main__":
         "-i",
         "--input",
         type=str,
-        help="Input CSV, ODS, or TXT file. Must have a column 'raw_nameblocks' with the nameblocks to be replaced.",
+        help="Input CSV, ODS, or TXT file.",
         required=True,
     )
     parser.add_argument(
@@ -184,8 +184,8 @@ if __name__ == "__main__":
         help="The name of the column in the CSV or ODS file that contains the raw nameblocks you want to replace.",
         required=True,
     )
-    parser.add_argument("-e1", "--encoding1", type=str, help="The encoding of the input file.", required=True)
-    parser.add_argument("-e2", "--encoding2", type=str, help="The encoding of the replacement table file.", required=True)
+    parser.add_argument("-e1", "--encoding1", type=str, help="The encoding of the input file.", default='utf-8')
+    parser.add_argument("-e2", "--encoding2", type=str, help="The encoding of the replacement table file.", default='utf-8')
 
     args = parser.parse_args()
 
