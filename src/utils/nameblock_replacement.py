@@ -9,7 +9,7 @@ from aletk.utils import get_logger, remove_extra_whitespace
 
 
 # Define here the delimiter used to separate nameblocks in the raw_nameblocks column
-RAW_NAMEBLOCKS_DELIMITER = ""  # Leave empty to not split the raw nameblocks
+RAW_NAMEBLOCKS_DELIMITER = " and "  # Leave empty to not split the raw nameblocks
 PROCESSED_NAMEBLOCKS_DELIMITER = ", "
 
 lgr = get_logger(__name__)
@@ -81,11 +81,18 @@ def read_raw_nameblocks(input_file: str, column_name: str, encoding: str) -> Lis
                 raw_nameblocks = [line.strip() for line in f.readlines()]
 
         case ".csv":
+            if not column_name:
+                raise ValueError("Column name must be specified for CSV files.")
             with open(input_file, "r", encoding=encoding) as f:
-                reader = csv.DictReader(f)
+                reader = csv.DictReader(f, delimiter="\t")
+                lgr.info(f"Reading column '{column_name}' from CSV file")
                 raw_nameblocks = [f"{row[column_name]}" for row in reader]
+                lgr.info(f"Found {len(raw_nameblocks)} raw nameblocks in the CSV file")
+                lgr.info(f"Example raw nameblock: {raw_nameblocks[0] if raw_nameblocks else 'None'}")
 
         case ".ods":
+            if not column_name:
+                raise ValueError("Column name must be specified for ODS files.")
             df = pl.read_ods(input_file, has_header=True, drop_empty_rows=True)
             raw_nameblocks = [f"{row}" for row in df[column_name].to_list()]
 
@@ -100,11 +107,16 @@ def main(input_file: str, replacement_table_file: str, column_name: str, encodin
         lgr.info(f"Reading replacement table from {replacement_table_file}")
         replacement_table = read_replacement_table(replacement_table_file, encoding2)
 
+        lgr.info(f"Replacement table loaded with {len(replacement_table)} entries. Example entry: {list(replacement_table.items())[0]}")
+
         lgr.info(f"Reading raw nameblocks from {input_file}")
         replaced_nameblocks_buffer = []
+        lgr.info(f"Input file: {input_file}, Column name: {column_name}, Encoding: {encoding1}")
 
         lgr.info(f"Reading raw nameblocks from {input_file}")
         raw_nameblocks_list = read_raw_nameblocks(input_file, column_name, encoding1)
+        lgr.info(f"Found {len(raw_nameblocks_list)} raw nameblocks")
+        lgr.info(f"Example raw nameblock: {raw_nameblocks_list[0] if raw_nameblocks_list else 'None'}")
 
         lgr.info(f"Replacing nameblocks")
         for raw_nameblocks in raw_nameblocks_list:
@@ -116,7 +128,7 @@ def main(input_file: str, replacement_table_file: str, column_name: str, encodin
                     replaced_nameblocks.append(replacement_table[nameblock])
                 else:
                     if nameblock is not None and nameblock != "None":
-                        lgr.info(f"Nameblock not found in replacement table: {nameblock}")
+                        #lgr.info(f"Nameblock not found in replacement table: {nameblock}")
                         replaced_nameblocks.append(nameblock)
                         not_found_nameblocks.append(nameblock)
                     else:
@@ -161,7 +173,7 @@ def cli_presenter(result: Ok[str] | Err) -> None:
 if __name__ == "__main__":
     import argparse
 
-    parser = argparse.ArgumentParser(description="Replace nameblocks in a CSV file with a replacement table")
+    parser = argparse.ArgumentParser(description="Replace nameblocks in a CSV file with a replacement table, and prints the result to stdout. Example usage: python nameblock_replacement.py -i input.csv -r replacement_table.csv -c raw_nameblocks -e1 utf-8 -e2 utf-8")
 
     parser.add_argument(
         "-i",
@@ -181,7 +193,7 @@ if __name__ == "__main__":
         "-c",
         "--column-name",
         type=str,
-        help="The name of the column in the CSV or ODS file that contains the raw nameblocks you want to replace.",
+        help="The name of the column in the input CSV or ODS file that contains the raw nameblocks you want to replace.",
         required=True,
     )
     parser.add_argument("-e1", "--encoding1", type=str, help="The encoding of the input file.", default='utf-8')
