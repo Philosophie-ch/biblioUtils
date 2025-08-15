@@ -194,7 +194,6 @@ if __name__ == "__main__":
         "--column-name",
         type=str,
         help="The name of the column in the input CSV or ODS file that contains the raw nameblocks you want to replace.",
-        required=True,
     )
     parser.add_argument("-e1", "--encoding1", type=str, help="The encoding of the input file.", default='utf-8')
     parser.add_argument("-e2", "--encoding2", type=str, help="The encoding of the replacement table file.", default='utf-8')
