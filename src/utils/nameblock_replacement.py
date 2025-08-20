@@ -102,12 +102,16 @@ def read_raw_nameblocks(input_file: str, column_name: str, encoding: str) -> Lis
     return raw_nameblocks
 
 
-def main(input_file: str, replacement_table_file: str, column_name: str, encoding1: str, encoding2: str) -> Ok[str] | Err:
+def main(
+    input_file: str, replacement_table_file: str, column_name: str, encoding1: str, encoding2: str
+) -> Ok[str] | Err:
     try:
         lgr.info(f"Reading replacement table from {replacement_table_file}")
         replacement_table = read_replacement_table(replacement_table_file, encoding2)
 
-        lgr.info(f"Replacement table loaded with {len(replacement_table)} entries. Example entry: {list(replacement_table.items())[0]}")
+        lgr.info(
+            f"Replacement table loaded with {len(replacement_table)} entries. Example entry: {list(replacement_table.items())[0]}"
+        )
 
         lgr.info(f"Reading raw nameblocks from {input_file}")
         replaced_nameblocks_buffer = []
@@ -128,7 +132,7 @@ def main(input_file: str, replacement_table_file: str, column_name: str, encodin
                     replaced_nameblocks.append(replacement_table[nameblock])
                 else:
                     if nameblock is not None and nameblock != "None":
-                        #lgr.info(f"Nameblock not found in replacement table: {nameblock}")
+                        # lgr.info(f"Nameblock not found in replacement table: {nameblock}")
                         replaced_nameblocks.append(nameblock)
                         not_found_nameblocks.append(nameblock)
                     else:
@@ -173,7 +177,9 @@ def cli_presenter(result: Ok[str] | Err) -> None:
 if __name__ == "__main__":
     import argparse
 
-    parser = argparse.ArgumentParser(description="Replace nameblocks in a CSV file with a replacement table, and prints the result to stdout. Example usage: python nameblock_replacement.py -i input.csv -r replacement_table.csv -c raw_nameblocks -e1 utf-8 -e2 utf-8")
+    parser = argparse.ArgumentParser(
+        description="Replace nameblocks in a CSV file with a replacement table, and prints the result to stdout. Example usage: python nameblock_replacement.py -i input.csv -r replacement_table.csv -c raw_nameblocks -e1 utf-8 -e2 utf-8"
+    )
 
     parser.add_argument(
         "-i",
@@ -196,7 +202,9 @@ if __name__ == "__main__":
         help="The name of the column in the input CSV or ODS file that contains the raw nameblocks you want to replace.",
     )
     parser.add_argument("-e1", "--encoding1", type=str, help="The encoding of the input file.", default='utf-8')
-    parser.add_argument("-e2", "--encoding2", type=str, help="The encoding of the replacement table file.", default='utf-8')
+    parser.add_argument(
+        "-e2", "--encoding2", type=str, help="The encoding of the replacement table file.", default='utf-8'
+    )
 
     args = parser.parse_args()
 
