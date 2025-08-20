@@ -1,5 +1,3 @@
-
-
 import os
 import xml.etree.ElementTree as ET
 from aletk.ResultMonad import main_try_except_wrapper, Ok, Err, TResult
@@ -10,7 +8,6 @@ from typing import Any, Callable, Dict, Generator, List, TypedDict
 basename = os.path.basename(__file__)
 
 lgr = get_logger(basename)
-
 
 
 class ArticleMetadata(TypedDict):
@@ -40,6 +37,7 @@ class ArticleMetadata(TypedDict):
 
 type ArticleMetadataGen = Generator[ArticleMetadata, None, None]
 
+
 def get_xml_files(directory: str) -> List[str]:
     """Recursively get all XML files in the given directory."""
 
@@ -62,6 +60,7 @@ def extract_text(elem: ET.Element, path: str) -> str:
 
     return extracted
 
+
 def full_name(raw_given: str, raw_surname: str) -> str:
     """Construct full name from given and surname."""
     given = remove_extra_whitespace(raw_given)
@@ -76,6 +75,7 @@ def full_name(raw_given: str, raw_surname: str) -> str:
             return given
         case _:
             return f"{surname}, {given}"
+
 
 def extract_article_data(xml_path: str) -> ArticleMetadata:
     tree = ET.parse(xml_path)
@@ -110,7 +110,7 @@ def extract_article_data(xml_path: str) -> ArticleMetadata:
         "abstract": "",
         "has_references": False,
         "is_review": False,
-        "reviewed_product_title": ""
+        "reviewed_product_title": "",
     }
 
     ## Journal Meta
@@ -119,7 +119,7 @@ def extract_article_data(xml_path: str) -> ArticleMetadata:
         data['journal_jstor_id'] = extract_text(journal_meta, 'journal-id[@journal-id-type="jstor"]')
         data['journal_title'] = extract_text(journal_meta, 'journal-title-group/journal-title')
         data['publisher_name'] = extract_text(journal_meta, 'publisher/publisher-name')
-    
+
     ## Article Meta
     if article_meta is not None:
         data['doi'] = extract_text(article_meta, 'article-id[@pub-id-type="doi"]')
@@ -139,7 +139,7 @@ def extract_article_data(xml_path: str) -> ArticleMetadata:
         self_uri = article_meta.find('self-uri')
         if self_uri is not None:
             data['stable_url'] = self_uri.attrib.get('{http://www.w3.org/1999/xlink}href', '')
-    
+
         custom_meta_group = article_meta.find('custom-meta-group')
         if custom_meta_group is not None:
             lang = None
@@ -153,7 +153,6 @@ def extract_article_data(xml_path: str) -> ArticleMetadata:
         ## Pages
         data['fpage'] = extract_text(article_meta, 'fpage')
         data['lpage'] = extract_text(article_meta, 'lpage')
-    
 
     ## Authors
     authors = []
@@ -190,13 +189,10 @@ def extract_article_data(xml_path: str) -> ArticleMetadata:
 
 process: Callable[[str], ArticleMetadataGen] = lambda directory: (
     extract_article_data(xml_file) for xml_file in get_xml_files(directory)
-) 
+)
 
 
-def write_article_metadata_to_csv(
-    metadata: ArticleMetadataGen,
-    output_file: str
-) -> None:
+def write_article_metadata_to_csv(metadata: ArticleMetadataGen, output_file: str) -> None:
     """Write the extracted article metadata to a CSV file."""
     import csv
 
@@ -214,14 +210,14 @@ def write_article_metadata_to_csv(
 @main_try_except_wrapper(lgr)
 def main(directory: str, output_file: str) -> None:
     """Main function to extract article metadata from XML files in the given directory."""
-    
+
     if not os.path.isdir(directory):
         raise ValueError(f"Provided path is not a directory: '{directory}'")
 
     lgr.info(f"Getting XML files from directory '{directory}'...")
 
     xml_files = get_xml_files(directory)
-    
+
     if not xml_files:
         lgr.warning(f"No XML files found in directory '{directory}'")
         return
@@ -253,24 +249,13 @@ def cli(result: TResult[None]) -> None:
             raise ValueError(f"Unexpected result type: {type(result)}")
 
 
-
 if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(description="Extract article metadata from XML files.")
+    parser.add_argument("-d", "--directory", type=str, required=True, help="Directory containing XML files to process.")
     parser.add_argument(
-        "-d",
-        "--directory",
-        type=str,
-        required=True,
-        help="Directory containing XML files to process."
-    )
-    parser.add_argument(
-        "-o",
-        "--output-file",
-        type=str,
-        required=True,
-        help="Output CSV file to write the article metadata."
+        "-o", "--output-file", type=str, required=True, help="Output CSV file to write the article metadata."
     )
 
     args = parser.parse_args()
