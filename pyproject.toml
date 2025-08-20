@@ -34,6 +34,8 @@ dependencies = [
   "polars",
   "fastexcel",
   "habanero",
+  "pypdf",
+  "pdf2image",
 ]
 
 [project.optional-dependencies]
