@@ -212,6 +212,10 @@ CLEANUP_MAP = {
     r"\,": "",
 }
 
+EXTERNAL_CLEANUP_MAP = {
+    r"`": "'",  # Replace backticks with single quotes
+}
+
 
 def tex2utf_naive(text: str) -> str:
     """
@@ -229,6 +233,16 @@ def tex2utf_naive(text: str) -> str:
     return line
 
 
+def tex2utf_external_postprocess(text: str) -> str:
+    """
+    Post-process the text after using pylatexenc to remove any unwanted characters.
+    """
+    for latex, unicode in EXTERNAL_CLEANUP_MAP.items():
+        post_processed = text.replace(latex, unicode)
+
+    return post_processed
+
+
 def tex2utf_external(latex_input: str) -> str:
     """
     Replace LaTeX special characters with their Unicode equivalents using the pylatexenc library.
@@ -237,7 +251,9 @@ def tex2utf_external(latex_input: str) -> str:
 
     stripped = remove_extra_whitespace(latex_input)
 
-    return stripped
+    post_processed = tex2utf_external_postprocess(stripped)
+
+    return post_processed
 
 
 type TReadInput = Tuple[
