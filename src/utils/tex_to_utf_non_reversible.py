@@ -275,12 +275,12 @@ def read_input_file(file: str, encoding: str | None, column: str | None) -> TRea
     extension = path.suffix
 
     match (extension, encoding, column):
-        case (".txt", encoding, None) if isinstance(encoding, str):
+        case (".txt", encoding, None) if (isinstance(encoding, str) and encoding != ""):
             with open(file, "r", encoding=encoding) as f:
                 text = f.read()
                 lines = text.splitlines()
 
-        case (".ods", _, column) if isinstance(column, str):
+        case (".ods", _, column) if (isinstance(column, str) and column != ""):
             df = pl.read_ods(file, has_header=True)
             lines = df[column].to_list()
 
