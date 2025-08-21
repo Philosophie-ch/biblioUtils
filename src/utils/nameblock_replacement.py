@@ -9,8 +9,8 @@ from aletk.utils import get_logger, remove_extra_whitespace
 
 
 # Define here the delimiter used to separate nameblocks in the raw_nameblocks column
-RAW_NAMEBLOCKS_DELIMITER = " and "  # Leave empty to not split the raw nameblocks
-PROCESSED_NAMEBLOCKS_DELIMITER = ", "
+RAW_NAMEBLOCKS_DELIMITER = ""  # Leave empty to not split the raw nameblocks
+PROCESSED_NAMEBLOCKS_DELIMITER = ""
 
 lgr = get_logger(__name__)
 
@@ -52,13 +52,20 @@ def read_replacement_table(replacement_table_file: str, encoding: str) -> dict[s
 
         case ".csv":
             with open(replacement_table_file, "r", encoding=encoding) as f:
-                reader = csv.reader(f)
-                replacement_table = {f"{row[0]}": f"{row[1]}" for row in reader}
+                reader = csv.reader(f, delimiter="\t")
+
+                replacement_table = {f"{row[0]}": f"{row[1]}" for row in reader if len(row) >= 2}
+
+                if not replacement_table:
+                    raise ValueError(f"The replacement table '{replacement_table_file}' is empty or does not contain the required columns. Expected at least two columns. Excerpt from the file: {list(csv.reader(f))[:5]}")
 
         case ".ods":
             df = pl.read_ods(replacement_table_file, has_header=False, drop_empty_rows=True)
 
             replacement_table = {f"{row[0]}": f"{row[1]}" for row in df.iter_rows()}
+
+            if not replacement_table:
+                raise ValueError(f"The replacement table '{replacement_table_file}' is empty or does not contain the required columns. Expected at least two columns. Excerpt from the file: {df.head(5)}")
 
         case _:
             raise ValueError("The replacement table must be a CSV or ODS file.")
@@ -74,17 +81,20 @@ def read_raw_nameblocks(input_file: str, column_name: str, encoding: str) -> Lis
         raise FileNotFoundError("The input file does not exist.")
 
     extension = path.suffix
+    excerpt = ""
 
     match extension:
         case ".txt":
             with open(input_file, "r", encoding=encoding) as f:
                 raw_nameblocks = [line.strip() for line in f.readlines()]
+                excerpt = str(raw_nameblocks[:5])
 
         case ".csv":
             if not column_name:
                 raise ValueError("Column name must be specified for CSV files.")
             with open(input_file, "r", encoding=encoding) as f:
                 reader = csv.DictReader(f, delimiter="\t")
+                excerpt = str(list(csv.reader(f))[5])
                 lgr.info(f"Reading column '{column_name}' from CSV file")
                 raw_nameblocks = [f"{row[column_name]}" for row in reader]
                 lgr.info(f"Found {len(raw_nameblocks)} raw nameblocks in the CSV file")
@@ -93,11 +103,16 @@ def read_raw_nameblocks(input_file: str, column_name: str, encoding: str) -> Lis
         case ".ods":
             if not column_name:
                 raise ValueError("Column name must be specified for ODS files.")
-            df = pl.read_ods(input_file, has_header=True, drop_empty_rows=True)
+            df = pl.read_ods(input_file, has_header=True, drop_empty_rows=True, schema_overrides={column_name: pl.Utf8})
+            excerpt = str(f"{df[column_name].drop_nulls().head(5)}")
             raw_nameblocks = [f"{row}" for row in df[column_name].to_list()]
+
 
         case _:
             raise ValueError("The input file must be a CSV or ODS file.")
+
+    if [nb for nb in raw_nameblocks if (nb and nb != "None" and nb != "")] == []:
+        raise ValueError(f"The input file '{input_file}' (params: column_name={column_name}, encoding={encoding}) is empty or does not contain the required column. Please ensure the file exists and the column name is correct. Excerpt from the file: {excerpt}")
 
     return raw_nameblocks
 
@@ -120,11 +135,14 @@ def main(
         lgr.info(f"Reading raw nameblocks from {input_file}")
         raw_nameblocks_list = read_raw_nameblocks(input_file, column_name, encoding1)
         lgr.info(f"Found {len(raw_nameblocks_list)} raw nameblocks")
-        lgr.info(f"Example raw nameblock: {raw_nameblocks_list[0] if raw_nameblocks_list else 'None'}")
+        lgr.info(f"Example raw nameblock: {next(rnb for rnb in raw_nameblocks_list if rnb and rnb != "None") if raw_nameblocks_list else 'None'}")
 
         lgr.info(f"Replacing nameblocks")
+        count = 0
         for raw_nameblocks in raw_nameblocks_list:
+            count += 1
             nameblocks = raw_nameblock_parser(raw_nameblocks)
+            lgr.info(f"Processing raw nameblocks: {nameblocks}") if count % 10000 == 0 else None
             replaced_nameblocks = []
             not_found_nameblocks = []
             for nameblock in nameblocks:
@@ -132,7 +150,7 @@ def main(
                     replaced_nameblocks.append(replacement_table[nameblock])
                 else:
                     if nameblock is not None and nameblock != "None":
-                        # lgr.info(f"Nameblock not found in replacement table: {nameblock}")
+                        #lgr.warning(f"Nameblock not found in replacement table: {nameblock}")
                         replaced_nameblocks.append(nameblock)
                         not_found_nameblocks.append(nameblock)
                     else:
@@ -149,12 +167,6 @@ def main(
         return Ok(out=result)
 
     except Exception as e:
-        print(
-            f"\tmessage: Unexpected error: {e}\n"
-            + f"\tcode: -1\n"
-            + f"\terror_type: {e.__class__.__name__}\n"
-            + f"\terror_trace: {traceback.format_exc()}\n"
-        )
         return Err(
             message=f"Unexpected error: {e}",
             code=-1,
@@ -171,7 +183,13 @@ def cli_presenter(result: Ok[str] | Err) -> None:
             print(out)
 
         case Err():
-            print(result)
+            lgr.error(
+                f"An unexpected error occurred:\n\n"
+                f"\tmessage: {result.message}\n"
+                + f"\tcode: {result.code}\n"
+                + f"\terror_type: {result.error_type}\n\n"
+                + f"\t=> Error_trace: {result.error_trace}\n"
+            )
 
 
 if __name__ == "__main__":
