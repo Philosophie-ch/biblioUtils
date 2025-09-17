@@ -57,7 +57,9 @@ def read_replacement_table(replacement_table_file: str, encoding: str) -> dict[s
                 replacement_table = {f"{row[0]}": f"{row[1]}" for row in reader if len(row) >= 2}
 
                 if not replacement_table:
-                    raise ValueError(f"The replacement table '{replacement_table_file}' is empty or does not contain the required columns. Expected at least two columns. Excerpt from the file: {list(csv.reader(f))[:5]}")
+                    raise ValueError(
+                        f"The replacement table '{replacement_table_file}' is empty or does not contain the required columns. Expected at least two columns. Excerpt from the file: {list(csv.reader(f))[:5]}"
+                    )
 
         case ".ods":
             df = pl.read_ods(replacement_table_file, has_header=False, drop_empty_rows=True)
@@ -65,7 +67,9 @@ def read_replacement_table(replacement_table_file: str, encoding: str) -> dict[s
             replacement_table = {f"{row[0]}": f"{row[1]}" for row in df.iter_rows()}
 
             if not replacement_table:
-                raise ValueError(f"The replacement table '{replacement_table_file}' is empty or does not contain the required columns. Expected at least two columns. Excerpt from the file: {df.head(5)}")
+                raise ValueError(
+                    f"The replacement table '{replacement_table_file}' is empty or does not contain the required columns. Expected at least two columns. Excerpt from the file: {df.head(5)}"
+                )
 
         case _:
             raise ValueError("The replacement table must be a CSV or ODS file.")
@@ -107,12 +111,13 @@ def read_raw_nameblocks(input_file: str, column_name: str, encoding: str) -> Lis
             excerpt = str(f"{df[column_name].drop_nulls().head(5)}")
             raw_nameblocks = [f"{row}" for row in df[column_name].to_list()]
 
-
         case _:
             raise ValueError("The input file must be a CSV or ODS file.")
 
     if [nb for nb in raw_nameblocks if (nb and nb != "None" and nb != "")] == []:
-        raise ValueError(f"The input file '{input_file}' (params: column_name={column_name}, encoding={encoding}) is empty or does not contain the required column. Please ensure the file exists and the column name is correct. Excerpt from the file: {excerpt}")
+        raise ValueError(
+            f"The input file '{input_file}' (params: column_name={column_name}, encoding={encoding}) is empty or does not contain the required column. Please ensure the file exists and the column name is correct. Excerpt from the file: {excerpt}"
+        )
 
     return raw_nameblocks
 
@@ -135,7 +140,9 @@ def main(
         lgr.info(f"Reading raw nameblocks from {input_file}")
         raw_nameblocks_list = read_raw_nameblocks(input_file, column_name, encoding1)
         lgr.info(f"Found {len(raw_nameblocks_list)} raw nameblocks")
-        lgr.info(f"Example raw nameblock: {next(rnb for rnb in raw_nameblocks_list if rnb and rnb != "None") if raw_nameblocks_list else 'None'}")
+        lgr.info(
+            f"Example raw nameblock: {next(rnb for rnb in raw_nameblocks_list if rnb and rnb != "None") if raw_nameblocks_list else 'None'}"
+        )
 
         lgr.info(f"Replacing nameblocks")
         count = 0
@@ -150,7 +157,7 @@ def main(
                     replaced_nameblocks.append(replacement_table[nameblock])
                 else:
                     if nameblock is not None and nameblock != "None":
-                        #lgr.warning(f"Nameblock not found in replacement table: {nameblock}")
+                        # lgr.warning(f"Nameblock not found in replacement table: {nameblock}")
                         replaced_nameblocks.append(nameblock)
                         not_found_nameblocks.append(nameblock)
                     else:
