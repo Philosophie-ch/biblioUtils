@@ -20,6 +20,7 @@ maintainers = [
 
 dependencies = [
   "aletk>=0.1.6", 
+  "philoch-bib-sdk",
   "titlecase",
   "pydantic",
   "requests", 
