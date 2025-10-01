@@ -124,6 +124,7 @@ class EnrichedDOIUpdater(DOIUpdater):
             # Detect encoding
             if not hasattr(self, 'csv_encoding') or self.csv_encoding is None:
                 import chardet
+
                 with open(input_csv, 'rb') as f:
                     raw_data = f.read(100000)
                     detected = chardet.detect(raw_data)
@@ -152,6 +153,7 @@ class EnrichedDOIUpdater(DOIUpdater):
         # Detect encoding if not specified
         if not hasattr(self, 'csv_encoding') or self.csv_encoding is None:
             import chardet
+
             with open(input_csv, 'rb') as f:
                 raw_data = f.read(100000)  # Read first 100KB
                 detected = chardet.detect(raw_data)
@@ -169,8 +171,7 @@ class EnrichedDOIUpdater(DOIUpdater):
 
         if bibkey_column not in input_df.columns:
             raise ValueError(
-                f"CSV must contain bibkey column '{bibkey_column}'. "
-                f"Available columns: {list(input_df.columns)}"
+                f"CSV must contain bibkey column '{bibkey_column}'. " f"Available columns: {list(input_df.columns)}"
             )
 
         # Enrich each row
@@ -347,7 +348,7 @@ class EnrichedDOIUpdater(DOIUpdater):
             try:
                 Path(enriched_csv).unlink()
             except Exception:
-                print(f"⚠️  Could not delete temporary file: {enriched_csv}") 
+                print(f"⚠️  Could not delete temporary file: {enriched_csv}")
 
         return result
 

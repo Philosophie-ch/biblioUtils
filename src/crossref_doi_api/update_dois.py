@@ -240,7 +240,7 @@ class DOIUpdater:
             '<doi_batch version="5.4.0" xmlns="http://www.crossref.org/schema/5.4.0"',
             '           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"',
             '           xsi:schemaLocation="http://www.crossref.org/schema/5.4.0',
-            '           http://www.crossref.org/schema/deposit/crossref5.4.0.xsd">',
+            '           http://www.crossref.org/schema/crossref5.4.0.xsd">',
             '',
             '  <head>',
             f'    <doi_batch_id>{batch_id}</doi_batch_id>',
@@ -312,6 +312,274 @@ class DOIUpdater:
 
         return '\n'.join(xml_lines)
 
+    def validate_batch_rows(self, rows: List[Dict[str, str]]) -> List[str]:
+        """
+        Validate all rows in a batch and return a list of validation errors.
+        Returns empty list if all rows are valid.
+        """
+        errors = []
+
+        for i, row in enumerate(rows, 1):
+            doi = row.get('doi', '').strip()
+            title = row.get('title', '').strip()
+            author_given = row.get('author_given_name', '').strip()
+            author_surname = row.get('author_surname', '').strip()
+
+            # Validate DOI
+            if not doi:
+                errors.append(f"Row {i}: Missing DOI")
+
+            # Validate title
+            if not title:
+                errors.append(f"Row {i} (DOI: {doi or 'unknown'}): Missing title")
+
+            # Validate author information
+            if not author_given and not author_surname:
+                errors.append(
+                    f"Row {i} (DOI: {doi or 'unknown'}): Missing author information. "
+                    f"Articles must have author_given_name and/or author_surname. "
+                    f"Check that 'assigned_authors' field is set in the CSV and authors exist in the authors CSV."
+                )
+
+            # Validate other required fields
+            year = row.get('_year', '').strip()
+            if not year:
+                errors.append(f"Row {i} (DOI: {doi or 'unknown'}): Missing year (_year)")
+
+            # Validate URL (field is 'link' in CSV)
+            link = row.get('link', '').strip()
+            if not link:
+                errors.append(f"Row {i} (DOI: {doi or 'unknown'}): Missing resource URL (link)")
+
+        return errors
+
+    def generate_batch_update_xml(self, rows: List[Dict[str, str]], batch_id: str) -> str:
+        """
+        Generate batch XML for multiple DOI updates in a single submission.
+
+        Groups articles by journal and creates a single doi_batch containing all updates.
+
+        Parameters
+        ----------
+        rows : List[Dict[str, str]]
+            List of CSV row data for all articles to update
+        batch_id : str
+            Unique batch identifier
+
+        Returns
+        -------
+        str
+            Complete batch XML with all articles
+        """
+        from collections import defaultdict
+
+        timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
+
+        # Group articles by journal + volume + issue combination
+        # Key: (journal_title, volume, issue, year, issn, issn_media_type, pub_date_media_type, language)
+        journal_issues: Dict[Tuple[str, str, str, str, str, str, str, str], List[Dict[str, str]]] = defaultdict(list)
+
+        for row in rows:
+            journal_title = row.get('journal_title', 'Philosophie.ch Publications').strip()
+            volume = row.get('volume', '').strip()
+            issue = row.get('issue', '').strip()
+            year = row.get('_year', '').strip()
+            journal_issn = row.get('journal_issn', '').strip()
+            issn_media_type = row.get('issn_media_type', 'electronic').strip()
+            publication_date_media_type = row.get('publication_date_media_type', 'online').strip()
+            language = row.get('language', 'en').strip()
+
+            # Group by journal + issue metadata
+            key = (
+                journal_title,
+                volume,
+                issue,
+                year,
+                journal_issn,
+                issn_media_type,
+                publication_date_media_type,
+                language,
+            )
+            journal_issues[key].append(row)
+
+        # Build XML header
+        xml_lines = [
+            '<?xml version="1.0" encoding="UTF-8"?>',
+            '<doi_batch version="5.4.0" xmlns="http://www.crossref.org/schema/5.4.0"',
+            '           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"',
+            '           xsi:schemaLocation="http://www.crossref.org/schema/5.4.0',
+            '           http://www.crossref.org/schema/crossref5.4.0.xsd">',
+            '',
+            '  <head>',
+            f'    <doi_batch_id>{batch_id}</doi_batch_id>',
+            f'    <timestamp>{timestamp}</timestamp>',
+            '    <depositor>',
+            f'      <depositor_name>{self.depositor_name}</depositor_name>',
+            f'      <email_address>{self.depositor_email}</email_address>',
+            '    </depositor>',
+            f'    <registrant>{self.depositor_name}</registrant>',
+            '  </head>',
+            '',
+            '  <body>',
+        ]
+
+        # Add each journal issue with its articles
+        for (
+            journal_title,
+            volume,
+            issue,
+            year,
+            journal_issn,
+            issn_media_type,
+            publication_date_media_type,
+            language,
+        ), issue_rows in journal_issues.items():
+
+            xml_lines.extend(
+                [
+                    '    <journal>',
+                    f'      <journal_metadata language="{language}">',
+                    f'        <full_title>{self._escape_xml(journal_title)}</full_title>',
+                ]
+            )
+
+            if journal_issn:
+                xml_lines.append(f'        <issn media_type="{issn_media_type}">{journal_issn}</issn>')
+
+            xml_lines.extend(
+                [
+                    '      </journal_metadata>',
+                    '',
+                    '      <journal_issue>',
+                    f'        <publication_date media_type="{publication_date_media_type}">',
+                    f'          <year>{year}</year>' if year else '          <year></year>',
+                    '        </publication_date>',
+                ]
+            )
+
+            # Add volume and issue if available
+            if volume:
+                xml_lines.extend(
+                    [
+                        '        <journal_volume>',
+                        f'          <volume>{volume}</volume>',
+                        '        </journal_volume>',
+                    ]
+                )
+
+            if issue:
+                xml_lines.append(f'        <issue>{issue}</issue>')
+
+            xml_lines.append('      </journal_issue>')
+            xml_lines.append('')
+
+            # Add all articles for this journal issue
+            for row in issue_rows:
+                article_xml = self.generate_journal_article_xml(row)
+                xml_lines.extend(article_xml)
+                xml_lines.append('')
+
+            xml_lines.append('    </journal>')
+
+        xml_lines.extend(['  </body>', '</doi_batch>'])
+
+        return '\n'.join(xml_lines)
+
+    def generate_journal_article_xml(self, row_data: Dict[str, str]) -> List[str]:
+        """
+        Generate XML lines for a single journal article (without the doi_batch wrapper).
+
+        This is used for batch processing where multiple articles are in one XML.
+
+        Parameters
+        ----------
+        row_data : Dict[str, str]
+            CSV row data with metadata
+
+        Returns
+        -------
+        List[str]
+            XML lines for the journal_article element
+        """
+        doi = row_data.get('doi', '').strip()
+        title = row_data.get('title', '').strip()
+        new_url = row_data.get('link', '').strip()
+        external_link = row_data.get('external_link', '').strip()
+        year = row_data.get('_year', '').strip()
+
+        # Author information
+        author_given = row_data.get('author_given_name', '').strip()
+        author_surname = row_data.get('author_surname', '').strip()
+
+        # Volume, issue, pages
+        volume = row_data.get('volume', '').strip()
+        issue = row_data.get('issue', '').strip()
+        first_page = row_data.get('first_page', '').strip()
+        last_page = row_data.get('last_page', '').strip()
+        publication_date_media_type = row_data.get('publication_date_media_type', 'online').strip()
+
+        xml_lines = [
+            '      <journal_article publication_type="full_text">',
+            '        <titles>',
+            f'          <title>{self._escape_xml(title)}</title>',
+            '        </titles>',
+            '        <contributors>',
+        ]
+
+        # Add authors (validation already done before this method is called)
+        if author_given or author_surname:
+            xml_lines.extend(
+                [
+                    '          <person_name sequence="first" contributor_role="author">',
+                    f'            <given_name>{self._escape_xml(author_given)}</given_name>',
+                    f'            <surname>{self._escape_xml(author_surname)}</surname>',
+                    '          </person_name>',
+                ]
+            )
+
+        xml_lines.extend(
+            [
+                '        </contributors>',
+                f'        <publication_date media_type="{publication_date_media_type}">',
+                f'          <year>{year}</year>' if year else '          <year></year>',
+                '        </publication_date>',
+            ]
+        )
+
+        # Add pages if available
+        if first_page or last_page:
+            xml_lines.append('        <pages>')
+            if first_page:
+                xml_lines.append(f'          <first_page>{first_page}</first_page>')
+            if last_page:
+                xml_lines.append(f'          <last_page>{last_page}</last_page>')
+            xml_lines.append('        </pages>')
+
+        # DOI data with primary URL
+        xml_lines.extend(
+            [
+                '        <doi_data>',
+                f'          <doi>{doi}</doi>',
+                f'          <resource>{self._escape_xml(new_url)}</resource>',
+            ]
+        )
+
+        # Add secondary URL if provided
+        if external_link:
+            xml_lines.extend(
+                [
+                    '          <collection property="crawler-based">',
+                    '            <item crawler="iParadigms">',
+                    f'              <resource>{self._escape_xml(external_link)}</resource>',
+                    '            </item>',
+                    '          </collection>',
+                ]
+            )
+
+        xml_lines.extend(['        </doi_data>', '      </journal_article>'])
+
+        return xml_lines
+
     def generate_csv_metadata_update_xml(self, row_data: Dict[str, str], batch_id: str) -> str:
         """
         Generate full metadata update XML using CSV data as source.
@@ -362,7 +630,7 @@ class DOIUpdater:
             '<doi_batch version="5.4.0" xmlns="http://www.crossref.org/schema/5.4.0"',
             '           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"',
             '           xsi:schemaLocation="http://www.crossref.org/schema/5.4.0',
-            '           http://www.crossref.org/schema/deposit/crossref5.4.0.xsd">',
+            '           http://www.crossref.org/schema/crossref5.4.0.xsd">',
             '',
             '  <head>',
             f'    <doi_batch_id>{batch_id}</doi_batch_id>',
@@ -561,6 +829,7 @@ class DOIUpdater:
         dry_run: bool = False,
         delay_between_updates: float = 2.0,
         use_csv_metadata: bool = False,
+        use_batch: bool = True,
     ) -> Dict[str, Any]:
         """
         Process DOI updates from CSV file.
@@ -574,11 +843,13 @@ class DOIUpdater:
         dry_run : bool, default False
             Generate XML files without submitting to Crossref
         delay_between_updates : float, default 2.0
-            Delay between updates in seconds
+            Delay between updates in seconds (only used if use_batch=False)
         use_csv_metadata : bool, default False
             Use CSV data as metadata source instead of fetching from Crossref API.
             Useful for domain migration and metadata correction.
-
+        use_batch : bool, default True
+            Submit all DOIs in a single batch XML (recommended).
+            If False, submits each DOI individually (legacy behavior).
 
         Returns
         -------
@@ -594,6 +865,8 @@ class DOIUpdater:
         else:
             print("🔄 Starting DOI updates...")
             print(f"   Environment: {'SANDBOX' if use_sandbox else 'PRODUCTION'}")
+            if use_batch:
+                print(f"   Mode: BATCH (all DOIs in one submission)")
 
         # Use appropriate credentials
         submit_username = self.sandbox_username if use_sandbox else self.username
@@ -613,6 +886,118 @@ class DOIUpdater:
                 if not required_fields.issubset(set(reader.fieldnames or [])):
                     return {'success': False, 'error': "Missing required CSV header: 'doi'", 'results': []}
 
+                # NEW: Batch mode - collect all rows and submit in one XML
+                if use_batch and use_csv_metadata:
+                    print("\n📦 Collecting DOIs for batch submission...")
+                    batch_rows = []
+                    for i, row in enumerate(reader, 1):
+                        doi = row.get('doi', '').strip()
+                        if not doi:
+                            print(f"   [{i}] Skipping row: missing DOI")
+                            continue
+                        batch_rows.append(row)
+
+                    total = len(batch_rows)
+                    print(f"   Collected {total} DOIs")
+
+                    if total == 0:
+                        return {'success': False, 'error': 'No valid DOIs to process', 'results': []}
+
+                    # Validate all rows before attempting to generate XML
+                    print(f"\n🔍 Validating batch entries...")
+                    validation_errors = self.validate_batch_rows(batch_rows)
+
+                    if validation_errors:
+                        print(f"\n❌ Validation failed! Found {len(validation_errors)} error(s):\n")
+                        for error in validation_errors:
+                            print(f"   • {error}")
+
+                        return {
+                            'success': False,
+                            'error': f'Batch validation failed with {len(validation_errors)} error(s)',
+                            'validation_errors': validation_errors,
+                            'total_updates': 0,
+                            'successful_updates': 0,
+                            'failed_updates': total,
+                            'results': [],
+                        }
+
+                    print(f"✅ All {total} entries validated successfully")
+
+                    # Generate batch XML
+                    print(f"\n📝 Generating batch XML...")
+                    xml_content = self.generate_batch_update_xml(batch_rows, batch_id)
+
+                    if dry_run:
+                        xml_filename = f"batch_update_{batch_id}.xml"
+                        with open(xml_filename, 'w', encoding='utf-8') as xml_file:
+                            xml_file.write(xml_content)
+                        print(f"✅ Batch XML saved: {xml_filename}")
+                        return {
+                            'success': True,
+                            'total_updates': total,
+                            'successful_updates': total,
+                            'failed_updates': 0,
+                            'results': [
+                                {'doi': row['doi'], 'success': True, 'xml_file': xml_filename} for row in batch_rows
+                            ],
+                            'batch_id': batch_id,
+                        }
+                    else:
+                        # Submit batch
+                        print(f"\n🚀 Submitting batch of {total} DOIs...")
+                        if use_sandbox:
+                            url = "https://test.crossref.org/servlet/deposit"
+                        else:
+                            url = "https://doi.crossref.org/servlet/deposit"
+
+                        try:
+                            xml_bytes = xml_content.encode('utf-8')
+                            files = {"fname": (f"batch_{batch_id}.xml", xml_bytes, "application/xml")}
+                            data = {
+                                "operation": "doMDUpload",
+                                "login_id": submit_username,
+                                "login_passwd": submit_password,
+                            }
+
+                            response = requests.post(url, data=data, files=files, timeout=60)
+
+                            if response.status_code == 200:
+                                print("✅ Batch submitted successfully!")
+                                print(f"Server response:\n{response.text[:500]}")
+                                return {
+                                    'success': True,
+                                    'total_updates': total,
+                                    'successful_updates': total,
+                                    'failed_updates': 0,
+                                    'results': [{'doi': row['doi'], 'success': True} for row in batch_rows],
+                                    'batch_id': batch_id,
+                                }
+                            else:
+                                print(f"❌ Batch submission failed: HTTP {response.status_code}")
+                                print(f"Response: {response.text[:500]}")
+                                return {
+                                    'success': False,
+                                    'error': f'HTTP {response.status_code}',
+                                    'total_updates': total,
+                                    'successful_updates': 0,
+                                    'failed_updates': total,
+                                    'results': [{'doi': row['doi'], 'success': False} for row in batch_rows],
+                                    'batch_id': batch_id,
+                                }
+                        except Exception as e:
+                            print(f"❌ Error submitting batch: {e}")
+                            return {
+                                'success': False,
+                                'error': str(e),
+                                'total_updates': total,
+                                'successful_updates': 0,
+                                'failed_updates': total,
+                                'results': [{'doi': row['doi'], 'success': False} for row in batch_rows],
+                                'batch_id': batch_id,
+                            }
+
+                # LEGACY: Individual submission mode
                 for i, row in enumerate(reader, 1):
                     doi = row.get('doi', '').strip()
                     new_url = row.get('link', '').strip()
