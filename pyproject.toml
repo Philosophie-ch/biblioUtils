@@ -37,6 +37,7 @@ dependencies = [
   "habanero",
   "pypdf",
   "pdf2image",
+  "chardet",
 ]
 
 [project.optional-dependencies]

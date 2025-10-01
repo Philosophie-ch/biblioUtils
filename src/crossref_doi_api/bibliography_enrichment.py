@@ -15,18 +15,18 @@ The enrichment process:
 
 import os
 from pathlib import Path
-from typing import Dict, Any, List, Optional, Union, Tuple
+from typing import Dict, Any, List, Optional, Union, Tuple, Literal
 import polars as pl
 from dotenv import load_dotenv
 
-# Import author parser from philch-bib-sdk
-try:
-    from philoch_bib_sdk.converters.plaintext.author.parser import parse_author
-    from philoch_bib_sdk.logic.models import TBibString, Author
-    AUTHOR_PARSER_AVAILABLE = True
-except ImportError:
-    AUTHOR_PARSER_AVAILABLE = False
-    print("⚠️  Warning: philch-bib-sdk not available. Author parsing will be limited.")
+# Import author parser from philch-bib-sdk (required dependency)
+from philoch_bib_sdk.converters.plaintext.author.parser import parse_author
+from philoch_bib_sdk.converters.plaintext.bibitem.date_parser import parse_date
+from philoch_bib_sdk.logic.models import TBibString, Author, BibItemDateAttr
+from aletk.ResultMonad import Ok, Err
+
+# Configuration constants
+BIBKEY_COLUMN_NAME = os.getenv("BIBKEY_COLUMN_NAME", "_article_bib_key")
 
 JSONValue = Union[str, int, float, bool, None, Dict[str, Any], List[Any]]
 JSONObject = Dict[str, JSONValue]
@@ -35,7 +35,7 @@ JSONObject = Dict[str, JSONValue]
 class BibliographyEnricher:
     """Handle bibliography metadata lookup and enrichment."""
 
-    def __init__(self, bibliography_path: Optional[str] = None):
+    def __init__(self, bibliography_path: Optional[str] = None, authors_csv_path: Optional[str] = None):
         """
         Initialize the bibliography enricher.
 
@@ -44,6 +44,9 @@ class BibliographyEnricher:
         bibliography_path : str, optional
             Path to the bibliography ODS file. If not provided, will try to
             load from BIBLIOGRAPHY_ODS_PATH environment variable.
+        authors_csv_path : str, optional
+            Path to the authors CSV file. If not provided, will try to
+            load from AUTHORS_CSV_PATH environment variable.
         """
         if bibliography_path is None:
             load_dotenv()
@@ -66,6 +69,36 @@ class BibliographyEnricher:
         # Check for bibkey column
         if "bibkey" not in self.df.columns:
             raise ValueError("Bibliography ODS must contain 'bibkey' column")
+
+        # Load authors CSV if provided
+        if authors_csv_path is None:
+            authors_csv_path = os.getenv("AUTHORS_CSV_PATH")
+
+        self.authors_df: Optional[pl.DataFrame] = None
+        if authors_csv_path:
+            authors_path = Path(authors_csv_path)
+            if authors_path.exists():
+                try:
+                    print(f"👥 Loading authors from: {authors_path}")
+                    # Only load the columns we need, ignore schema inference issues
+                    self.authors_df = pl.read_csv(
+                        str(authors_path),
+                        ignore_errors=True,
+                        infer_schema_length=0  # Treat all columns as strings
+                    )
+                    print(f"   Loaded {len(self.authors_df)} authors")
+
+                    # Check for required columns
+                    required_cols = ["login", "firstname", "lastname"]
+                    missing = [col for col in required_cols if col not in self.authors_df.columns]
+                    if missing:
+                        print(f"⚠️  Authors CSV missing columns: {missing}")
+                        self.authors_df = None
+                except Exception as e:
+                    print(f"⚠️  Error loading authors CSV: {e}")
+                    self.authors_df = None
+            else:
+                print(f"⚠️  Authors CSV not found: {authors_path}")
 
     def lookup_bibkey(self, bibkey: str) -> Optional[Dict[str, Any]]:
         """
@@ -93,6 +126,61 @@ class BibliographyEnricher:
         row_dict = matches.row(0, named=True)
         return row_dict
 
+    def lookup_author(self, login: str) -> Optional[Dict[str, str]]:
+        """
+        Look up an author by login and return clean firstname/lastname.
+
+        Parameters
+        ----------
+        login : str
+            The author login/key to look up
+
+        Returns
+        -------
+        Optional[Dict[str, str]]
+            Dictionary with 'given_name' and 'surname' keys, or None if not found
+        """
+        if self.authors_df is None:
+            return None
+
+        matches = self.authors_df.filter(pl.col("login") == login)
+
+        if len(matches) == 0:
+            return None
+
+        row = matches.row(0, named=True)
+        return {
+            "given_name": str(row.get("firstname", "")),
+            "surname": str(row.get("lastname", ""))
+        }
+
+    def lookup_authors_from_keys(self, author_keys: str) -> List[Dict[str, str]]:
+        """
+        Look up multiple authors from comma-separated author keys.
+
+        Parameters
+        ----------
+        author_keys : str
+            Comma-separated list of author login keys
+
+        Returns
+        -------
+        List[Dict[str, str]]
+            List of author dictionaries with 'given_name' and 'surname' keys
+        """
+        if not author_keys or not author_keys.strip():
+            return []
+
+        authors = []
+        keys = [k.strip() for k in author_keys.split(",") if k.strip()]
+
+        for key in keys:
+            author = self.lookup_author(key)
+            if author:
+                authors.append(author)
+
+        return authors
+
     def parse_authors(self, author_string: str) -> List[Dict[str, str]]:
         """
         Parse author string using philch-bib-sdk parser.
@@ -110,38 +198,31 @@ class BibliographyEnricher:
         if not author_string or author_string.strip() == "":
             return []
 
-        if not AUTHOR_PARSER_AVAILABLE:
-            # Fallback: basic parsing
-            return self._parse_authors_fallback(author_string)
-
         try:
-            result = parse_author(author_string, TBibString.raw)
+            # TBibString is Literal["latex", "unicode", "simplified"], not an enum with .raw
+            result: Union[Ok[Tuple[Author, ...]], Err] = parse_author(author_string, "simplified")
 
-            if result.is_ok():
-                authors = result.value
+            if isinstance(result, Ok):
+                authors: Tuple[Author, ...] = result.out
                 parsed_authors = []
 
                 for author in authors:
-                    # Extract from BibStringAttr objects
-                    given_name = str(author.given_name.raw) if author.given_name.raw else ""
-                    family_name = str(author.family_name.raw) if author.family_name.raw else ""
-                    mononym = str(author.mononym.raw) if author.mononym.raw else ""
+                    # Extract from BibStringAttr objects (use simplified form)
+                    given_name = str(author.given_name.simplified) if author.given_name.simplified else ""
+                    family_name = str(author.family_name.simplified) if author.family_name.simplified else ""
+                    mononym = str(author.mononym.simplified) if author.mononym.simplified else ""
 
                     if mononym:
                         # For mononyms, use as surname
-                        parsed_authors.append({
-                            "given_name": "",
-                            "surname": mononym
-                        })
+                        parsed_authors.append({"given_name": "", "surname": mononym})
                     else:
-                        parsed_authors.append({
-                            "given_name": given_name,
-                            "surname": family_name
-                        })
+                        parsed_authors.append({"given_name": given_name, "surname": family_name})
 
                 return parsed_authors
+            elif isinstance(result, Err):
+                print(f"⚠️  Author parsing error: {result.message if hasattr(result, 'message') else 'Unknown error'}")
+                return self._parse_authors_fallback(author_string)
             else:
-                print(f"⚠️  Author parsing error: {result.message}")
                 return self._parse_authors_fallback(author_string)
 
         except Exception as e:
@@ -169,16 +250,10 @@ class BibliographyEnricher:
             part = part.strip()
             if "," in part:
                 surname, given = part.split(",", 1)
-                authors.append({
-                    "given_name": given.strip(),
-                    "surname": surname.strip()
-                })
+                authors.append({"given_name": given.strip(), "surname": surname.strip()})
             else:
                 # No comma, assume mononym or surname only
-                authors.append({
-                    "given_name": "",
-                    "surname": part.strip()
-                })
+                authors.append({"given_name": "", "surname": part.strip()})
 
         return authors
 
@@ -244,18 +319,35 @@ class BibliographyEnricher:
 
         # Extract and transform fields from bibliography
 
-        # Title
-        if bib_row.get("title"):
+        # Title - only use from bibliography if not already in base metadata (CSV takes precedence)
+        if "title" not in enriched and bib_row.get("title"):
             enriched["title"] = str(bib_row["title"])
 
-        # Year
-        if bib_row.get("date"):
-            enriched["_year"] = int(bib_row["date"])
+        # Year - extract from date field using SDK parser
+        date_field = bib_row.get("date")
+        if date_field is not None and date_field != "":
+            try:
+                # Use SDK's parse_date to properly parse the date string
+                date_result: Union[Ok[Union[BibItemDateAttr, Literal["no date"]]], Err] = parse_date(str(date_field))
 
-        # Authors - parse the author string
-        author_string = bib_row.get("author", "")
-        if author_string:
-            parsed_authors = self.parse_authors(str(author_string))
+                if isinstance(date_result, Ok):
+                    date_value = date_result.out
+                    # Check if we got a BibItemDateAttr (not "no date")
+                    if isinstance(date_value, BibItemDateAttr):
+                        enriched["_year"] = date_value.year
+                    elif date_value != "no date":
+                        # Fallback: try direct conversion
+                        enriched["_year"] = int(str(date_field))
+                elif isinstance(date_result, Err):
+                    print(f"⚠️  Could not parse date '{date_field}': {date_result.message if hasattr(date_result, 'message') else 'Unknown error'}")
+            except Exception as e:
+                print(f"⚠️  Exception parsing date '{date_field}': {e}")
+
+        # Authors - prefer assigned_authors from base_metadata (CSV), then fall back to bibliography
+        assigned_authors = enriched.get("assigned_authors", "")
+        if assigned_authors and self.authors_df is not None:
+            # Look up authors from CSV using assigned_authors keys
+            parsed_authors = self.lookup_authors_from_keys(str(assigned_authors))
             if parsed_authors:
                 # Set primary author
                 enriched["author_given_name"] = parsed_authors[0]["given_name"]
@@ -264,18 +356,32 @@ class BibliographyEnricher:
                 # Add additional authors if present
                 if len(parsed_authors) > 1:
                     enriched["additional_authors"] = [
-                        {"given_name": a["given_name"], "surname": a["surname"]}
-                        for a in parsed_authors[1:]
+                        {"given_name": a["given_name"], "surname": a["surname"]} for a in parsed_authors[1:]
                     ]
+        else:
+            # Fallback: parse author string from bibliography
+            author_string = bib_row.get("author", "")
+            if author_string:
+                parsed_authors = self.parse_authors(str(author_string))
+                if parsed_authors:
+                    # Set primary author
+                    enriched["author_given_name"] = parsed_authors[0]["given_name"]
+                    enriched["author_surname"] = parsed_authors[0]["surname"]
 
-        # If no author, try editor
-        if not author_string and bib_row.get("editor"):
-            editor_string = str(bib_row["editor"])
-            parsed_editors = self.parse_authors(editor_string)
-            if parsed_editors:
-                enriched["author_given_name"] = parsed_editors[0]["given_name"]
-                enriched["author_surname"] = parsed_editors[0]["surname"]
-                enriched["contributor_role"] = "editor"
+                    # Add additional authors if present
+                    if len(parsed_authors) > 1:
+                        enriched["additional_authors"] = [
+                            {"given_name": a["given_name"], "surname": a["surname"]} for a in parsed_authors[1:]
+                        ]
+
+            # If no author, try editor
+            if not author_string and bib_row.get("editor"):
+                editor_string = str(bib_row["editor"])
+                parsed_editors = self.parse_authors(editor_string)
+                if parsed_editors:
+                    enriched["author_given_name"] = parsed_editors[0]["given_name"]
+                    enriched["author_surname"] = parsed_editors[0]["surname"]
+                    enriched["contributor_role"] = "editor"
 
         # Journal metadata
         if bib_row.get("journal"):
@@ -354,7 +460,7 @@ class BibliographyEnricher:
 def enrich_csv_with_bibliography(
     csv_path: str,
     bibliography_path: Optional[str] = None,
-    bibkey_column: str = "bibkey"
+    bibkey_column: Optional[str] = None
 ) -> List[Dict[str, Any]]:
     """
     Read a CSV file and enrich each row with bibliography metadata.
@@ -365,21 +471,28 @@ def enrich_csv_with_bibliography(
         Path to the CSV file containing bibkeys
     bibliography_path : str, optional
         Path to bibliography ODS file (or uses BIBLIOGRAPHY_ODS_PATH env var)
-    bibkey_column : str
-        Name of the column containing bibkeys (default: "bibkey")
+    bibkey_column : str, optional
+        Name of the column containing bibkeys (default: from BIBKEY_COLUMN_NAME env var or "_article_bib_key")
 
     Returns
     -------
     List[Dict[str, Any]]
         List of enriched metadata dictionaries
     """
+    if bibkey_column is None:
+        bibkey_column = BIBKEY_COLUMN_NAME
+
     enricher = BibliographyEnricher(bibliography_path)
 
     # Read CSV
     csv_df = pl.read_csv(csv_path)
 
+    # Check if bibkey column exists
     if bibkey_column not in csv_df.columns:
-        raise ValueError(f"CSV must contain '{bibkey_column}' column")
+        raise ValueError(
+            f"CSV must contain bibkey column '{bibkey_column}'. "
+            f"Available columns: {list(csv_df.columns)}"
+        )
 
     enriched_rows = []
     total = len(csv_df)
