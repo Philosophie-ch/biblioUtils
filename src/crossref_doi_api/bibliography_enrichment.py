@@ -82,9 +82,7 @@ class BibliographyEnricher:
                     print(f"👥 Loading authors from: {authors_path}")
                     # Only load the columns we need, ignore schema inference issues
                     self.authors_df = pl.read_csv(
-                        str(authors_path),
-                        ignore_errors=True,
-                        infer_schema_length=0  # Treat all columns as strings
+                        str(authors_path), ignore_errors=True, infer_schema_length=0  # Treat all columns as strings
                     )
                     print(f"   Loaded {len(self.authors_df)} authors")
 
@@ -149,10 +147,7 @@ class BibliographyEnricher:
             return None
 
         row = matches.row(0, named=True)
-        return {
-            "given_name": str(row.get("firstname", "")),
-            "surname": str(row.get("lastname", ""))
-        }
+        return {"given_name": str(row.get("firstname", "")), "surname": str(row.get("lastname", ""))}
 
     def lookup_authors_from_keys(self, author_keys: str) -> List[Dict[str, str]]:
         """
@@ -339,7 +334,9 @@ class BibliographyEnricher:
                         # Fallback: try direct conversion
                         enriched["_year"] = int(str(date_field))
                 elif isinstance(date_result, Err):
-                    print(f"⚠️  Could not parse date '{date_field}': {date_result.message if hasattr(date_result, 'message') else 'Unknown error'}")
+                    print(
+                        f"⚠️  Could not parse date '{date_field}': {date_result.message if hasattr(date_result, 'message') else 'Unknown error'}"
+                    )
             except Exception as e:
                 print(f"⚠️  Exception parsing date '{date_field}': {e}")
 
@@ -458,9 +455,7 @@ class BibliographyEnricher:
 
 
 def enrich_csv_with_bibliography(
-    csv_path: str,
-    bibliography_path: Optional[str] = None,
-    bibkey_column: Optional[str] = None
+    csv_path: str, bibliography_path: Optional[str] = None, bibkey_column: Optional[str] = None
 ) -> List[Dict[str, Any]]:
     """
     Read a CSV file and enrich each row with bibliography metadata.
@@ -490,8 +485,7 @@ def enrich_csv_with_bibliography(
     # Check if bibkey column exists
     if bibkey_column not in csv_df.columns:
         raise ValueError(
-            f"CSV must contain bibkey column '{bibkey_column}'. "
-            f"Available columns: {list(csv_df.columns)}"
+            f"CSV must contain bibkey column '{bibkey_column}'. " f"Available columns: {list(csv_df.columns)}"
         )
 
     enriched_rows = []

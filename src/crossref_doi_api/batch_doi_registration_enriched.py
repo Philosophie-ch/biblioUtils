@@ -30,7 +30,11 @@ from dotenv import load_dotenv
 
 # Import the original batch registration
 from src.crossref_doi_api.batch_doi_registration import BatchDOIRegistration
-from src.crossref_doi_api.bibliography_enrichment import BibliographyEnricher, enrich_csv_with_bibliography, BIBKEY_COLUMN_NAME
+from src.crossref_doi_api.bibliography_enrichment import (
+    BibliographyEnricher,
+    enrich_csv_with_bibliography,
+    BIBKEY_COLUMN_NAME,
+)
 
 
 class EnrichedBatchDOIRegistration(BatchDOIRegistration):
@@ -121,6 +125,7 @@ class EnrichedBatchDOIRegistration(BatchDOIRegistration):
         # Detect encoding if not specified
         if not hasattr(self, 'csv_encoding') or self.csv_encoding is None:
             import chardet
+
             with open(input_csv, 'rb') as f:
                 raw_data = f.read(100000)  # Read first 100KB
                 detected = chardet.detect(raw_data)
@@ -138,8 +143,7 @@ class EnrichedBatchDOIRegistration(BatchDOIRegistration):
 
         if bibkey_column not in input_df.columns:
             raise ValueError(
-                f"CSV must contain bibkey column '{bibkey_column}'. "
-                f"Available columns: {list(input_df.columns)}"
+                f"CSV must contain bibkey column '{bibkey_column}'. " f"Available columns: {list(input_df.columns)}"
             )
 
         # Enrich each row
