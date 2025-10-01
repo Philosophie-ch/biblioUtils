@@ -30,7 +30,7 @@ from dotenv import load_dotenv
 
 # Import the original batch registration
 from src.crossref_doi_api.batch_doi_registration import BatchDOIRegistration
-from src.crossref_doi_api.bibliography_enrichment import BibliographyEnricher, enrich_csv_with_bibliography
+from src.crossref_doi_api.bibliography_enrichment import BibliographyEnricher, enrich_csv_with_bibliography, BIBKEY_COLUMN_NAME
 
 
 class EnrichedBatchDOIRegistration(BatchDOIRegistration):
@@ -50,6 +50,7 @@ class EnrichedBatchDOIRegistration(BatchDOIRegistration):
         depositor_email: str = "philipp.blum@philosophie.ch",
         bibliography_path: Optional[str] = None,
         enable_enrichment: bool = True,
+        csv_encoding: Optional[str] = None,
     ):
         """
         Initialize enriched batch DOI registration.
@@ -72,10 +73,13 @@ class EnrichedBatchDOIRegistration(BatchDOIRegistration):
             Path to bibliography ODS file (uses BIBLIOGRAPHY_ODS_PATH env var if not provided)
         enable_enrichment : bool
             Enable bibliography enrichment (default: True)
+        csv_encoding : str, optional
+            CSV file encoding (default: auto-detect using chardet)
         """
         super().__init__(username, password, sandbox_username, sandbox_password, depositor_name, depositor_email)
 
         self.enable_enrichment = enable_enrichment
+        self.csv_encoding = csv_encoding
         self.enricher = None
 
         if enable_enrichment:
@@ -86,7 +90,7 @@ class EnrichedBatchDOIRegistration(BatchDOIRegistration):
                 print(f"⚠️  Bibliography enrichment disabled: {e}")
                 self.enable_enrichment = False
 
-    def _create_enriched_csv(self, input_csv: Union[str, Path], bibkey_column: str = "bibkey") -> Path:
+    def _create_enriched_csv(self, input_csv: Union[str, Path], bibkey_column: Optional[str] = None) -> Path:
         """
         Create a temporary enriched CSV file from the input CSV.
 
@@ -95,13 +99,16 @@ class EnrichedBatchDOIRegistration(BatchDOIRegistration):
         input_csv : str or Path
             Original CSV file with minimal data
         bibkey_column : str
-            Name of the column containing bibkeys
+            Name of the column containing bibkeys (default: "article_bib_key")
 
         Returns
         -------
         Path
             Path to temporary enriched CSV file
         """
+        if bibkey_column is None:
+            bibkey_column = BIBKEY_COLUMN_NAME
+
         if not self.enricher:
             # No enrichment available, return original
             return Path(input_csv)
@@ -110,11 +117,30 @@ class EnrichedBatchDOIRegistration(BatchDOIRegistration):
 
         # Read input CSV
         import polars as pl
-        input_df = pl.read_csv(str(input_csv))
+
+        # Detect encoding if not specified
+        if not hasattr(self, 'csv_encoding') or self.csv_encoding is None:
+            import chardet
+            with open(input_csv, 'rb') as f:
+                raw_data = f.read(100000)  # Read first 100KB
+                detected = chardet.detect(raw_data)
+                encoding = detected['encoding'] or 'utf-8'
+                confidence = detected['confidence']
+                print(f"   Detected encoding: {encoding} (confidence: {confidence:.0%})")
+        else:
+            encoding = self.csv_encoding
+
+        try:
+            input_df = pl.read_csv(str(input_csv), encoding=encoding)
+        except Exception:
+            print(f"   ⚠️  Failed to read with {encoding}, trying utf-8...")
+            input_df = pl.read_csv(str(input_csv), encoding='utf-8')
 
         if bibkey_column not in input_df.columns:
-            print(f"⚠️  '{bibkey_column}' column not found. Skipping enrichment.")
-            return Path(input_csv)
+            raise ValueError(
+                f"CSV must contain bibkey column '{bibkey_column}'. "
+                f"Available columns: {list(input_df.columns)}"
+            )
 
         # Enrich each row
         enriched_rows = []
@@ -221,6 +247,7 @@ class EnrichedBatchDOIRegistration(BatchDOIRegistration):
         # Additional authors as JSON string
         if "additional_authors" in enriched:
             import json
+
             csv_row["additional_authors"] = json.dumps(enriched["additional_authors"])
 
         # Publisher info
@@ -297,7 +324,7 @@ class EnrichedBatchDOIRegistration(BatchDOIRegistration):
             )
 
 
-def main():
+def main() -> None:
     """Main entry point for enriched batch DOI registration."""
     import argparse
 
@@ -333,6 +360,7 @@ Environment variables required:
     parser.add_argument("--dry-run", action="store_true", help="Generate XML files without submitting")
     parser.add_argument("--no-enrichment", action="store_true", help="Disable bibliography enrichment")
     parser.add_argument("--bibliography", type=str, help="Bibliography ODS path (overrides env var)")
+    parser.add_argument("--encoding", type=str, help="CSV file encoding (default: auto-detect)")
 
     args = parser.parse_args()
 
@@ -356,6 +384,7 @@ Environment variables required:
             sandbox_password=sandbox_password,
             bibliography_path=args.bibliography,
             enable_enrichment=not args.no_enrichment,
+            csv_encoding=args.encoding,
         )
     except Exception as e:
         print(f"❌ Initialization error: {e}")

@@ -5,11 +5,16 @@ This enhancement allows you to register and update DOIs using **minimal CSV file
 ## What's New?
 
 Instead of providing all metadata in your CSV files, you can now just provide:
-- `bibkey` - the unique identifier from your bibliography
+- `publication_key` (or `bibkey` or `_article_bib_key`) - the unique identifier from your bibliography
 - `link` - the URL where the publication lives
 - `doi` - (optional) the DOI to register/update
 
 All other metadata (authors, title, journal, volume, issue, pages, etc.) will be automatically looked up from your bibliography ODS file.
+
+**Column Name Flexibility:** The scripts automatically recognize these bibkey column names:
+- `publication_key` (default, matches portal exports)
+- `bibkey` (alternative)
+- `_article_bib_key` (fallback)
 
 ## Setup
 
@@ -36,10 +41,12 @@ Enhanced DOI registration with automatic metadata enrichment.
 
 **Minimal CSV format:**
 ```csv
-bibkey,link,doi
+publication_key,link,doi
 smith-2024-epistemology,https://philosophie.ch/smith-2024,10.48106/dial.2024.smith
 jones-2023-ethics,https://philosophie.ch/jones-2023,10.48106/dial.2023.jones
 ```
+
+*Note: Also accepts `bibkey` or `_article_bib_key` as the bibkey column name.*
 
 **Usage:**
 ```bash
@@ -70,10 +77,12 @@ Enhanced DOI updates with automatic metadata enrichment.
 
 **Minimal CSV format:**
 ```csv
-bibkey,link
+publication_key,link
 smith-2024-epistemology,https://philosophie.ch/new-url/smith-2024
 jones-2023-ethics,https://philosophie.ch/new-url/jones-2023
 ```
+
+*Note: Also accepts `bibkey` or `_article_bib_key` as the bibkey column name.*
 
 **Usage:**
 ```bash

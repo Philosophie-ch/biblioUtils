@@ -348,6 +348,8 @@ class DOIUpdater:
         # Journal information
         journal_title = row_data.get('journal_title', 'Philosophie.ch Publications').strip()
         journal_issn = row_data.get('journal_issn', '').strip()
+        issn_media_type = row_data.get('issn_media_type', 'electronic').strip()
+        publication_date_media_type = row_data.get('publication_date_media_type', 'online').strip()
         volume = row_data.get('volume', '').strip()
         issue = row_data.get('issue', '').strip()
         first_page = row_data.get('first_page', '').strip()
@@ -380,14 +382,14 @@ class DOIUpdater:
 
         # Add ISSN if available
         if journal_issn:
-            xml_lines.append(f'        <issn media_type="electronic">{journal_issn}</issn>')
+            xml_lines.append(f'        <issn media_type="{issn_media_type}">{journal_issn}</issn>')
 
         xml_lines.extend(
             [
                 '      </journal_metadata>',
                 '',
                 '      <journal_issue>',
-                '        <publication_date media_type="online">',
+                f'        <publication_date media_type="{publication_date_media_type}">',
                 f'          <year>{year}</year>' if year else '          <year></year>',
                 '        </publication_date>',
             ]
@@ -432,7 +434,7 @@ class DOIUpdater:
         xml_lines.extend(
             [
                 '        </contributors>',
-                '        <publication_date media_type="online">',
+                f'        <publication_date media_type="{publication_date_media_type}">',
                 f'          <year>{year}</year>' if year else '          <year></year>',
                 '        </publication_date>',
             ]

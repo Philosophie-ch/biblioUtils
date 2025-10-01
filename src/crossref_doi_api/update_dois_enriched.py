@@ -33,7 +33,12 @@ import argparse
 
 # Import the original update functionality
 from src.crossref_doi_api.update_dois import DOIUpdater
-from src.crossref_doi_api.bibliography_enrichment import BibliographyEnricher
+from src.crossref_doi_api.bibliography_enrichment import BibliographyEnricher, BIBKEY_COLUMN_NAME
+
+# Journal ISSN constants - format: (issn, media_type)
+JOURNAL_ISSNS = {
+    "Dialectica": ("0012-2017", "print"),  # Print ISSN for Dialectica journal
+}
 
 
 class EnrichedDOIUpdater(DOIUpdater):
@@ -53,6 +58,7 @@ class EnrichedDOIUpdater(DOIUpdater):
         depositor_email: str = "philipp.blum@philosophie.ch",
         bibliography_path: Optional[str] = None,
         enable_enrichment: bool = True,
+        csv_encoding: Optional[str] = None,
     ):
         """
         Initialize enriched DOI updater.
@@ -75,10 +81,13 @@ class EnrichedDOIUpdater(DOIUpdater):
             Path to bibliography ODS file (uses BIBLIOGRAPHY_ODS_PATH env var if not provided)
         enable_enrichment : bool
             Enable bibliography enrichment (default: True)
+        csv_encoding : str, optional
+            CSV file encoding (default: auto-detect using chardet)
         """
         super().__init__(username, password, sandbox_username, sandbox_password, depositor_name, depositor_email)
 
         self.enable_enrichment = enable_enrichment
+        self.csv_encoding = csv_encoding
         self.enricher = None
 
         if enable_enrichment:
@@ -89,36 +98,80 @@ class EnrichedDOIUpdater(DOIUpdater):
                 print(f"⚠️  Bibliography enrichment disabled: {e}")
                 self.enable_enrichment = False
 
-    def _create_enriched_update_csv(self, input_csv: Union[str, Path], bibkey_column: str = "bibkey") -> Path:
+    def _create_enriched_update_csv(self, input_csv: Union[str, Path], bibkey_column: Optional[str] = None) -> Path:
         """
         Create a temporary enriched CSV file from the input CSV for updates.
 
         Parameters
         ----------
         input_csv : str or Path
-            Original CSV file with minimal data (bibkey + link)
+            Original CSV file with minimal data (_article_bib_key + link)
         bibkey_column : str
-            Name of the column containing bibkeys
+            Name of the column containing bibkeys (default: "_article_bib_key")
 
         Returns
         -------
         Path
             Path to temporary enriched CSV file
         """
+        if bibkey_column is None:
+            bibkey_column = BIBKEY_COLUMN_NAME
+
         if not self.enricher:
-            # No enrichment available, return original
-            return Path(input_csv)
+            # No enrichment available, but still need to convert to UTF-8 for parent class
+            print("\n📄 Converting CSV to UTF-8 (enrichment disabled)...")
+
+            # Detect encoding
+            if not hasattr(self, 'csv_encoding') or self.csv_encoding is None:
+                import chardet
+                with open(input_csv, 'rb') as f:
+                    raw_data = f.read(100000)
+                    detected = chardet.detect(raw_data)
+                    encoding = detected['encoding'] or 'utf-8'
+                    confidence = detected['confidence']
+                    print(f"   Detected encoding: {encoding} (confidence: {confidence:.0%})")
+            else:
+                encoding = self.csv_encoding
+
+            # If already UTF-8, return original
+            if encoding.lower() in ['utf-8', 'utf8', 'ascii']:
+                return Path(input_csv)
+
+            # Convert to UTF-8
+            temp_csv = Path(tempfile.mktemp(suffix=".csv", prefix="converted_"))
+            input_df = pl.read_csv(str(input_csv), encoding=encoding)
+            input_df.write_csv(str(temp_csv))
+            print(f"   Converted to UTF-8: {temp_csv}")
+            return temp_csv
 
         print("\n📚 Enriching CSV with bibliography metadata...")
 
         # Read input CSV
         import polars as pl
 
-        input_df = pl.read_csv(str(input_csv))
+        # Detect encoding if not specified
+        if not hasattr(self, 'csv_encoding') or self.csv_encoding is None:
+            import chardet
+            with open(input_csv, 'rb') as f:
+                raw_data = f.read(100000)  # Read first 100KB
+                detected = chardet.detect(raw_data)
+                encoding = detected['encoding'] or 'utf-8'
+                confidence = detected['confidence']
+                print(f"   Detected encoding: {encoding} (confidence: {confidence:.0%})")
+        else:
+            encoding = self.csv_encoding
+
+        try:
+            input_df = pl.read_csv(str(input_csv), encoding=encoding)
+        except Exception as e:
+            print(f"   ⚠️  Failed to read with {encoding}, trying utf-8...")
+            input_df = pl.read_csv(str(input_csv), encoding='utf-8')
 
         if bibkey_column not in input_df.columns:
-            print(f"⚠️  '{bibkey_column}' column not found. Skipping enrichment.")
-            return Path(input_csv)
+            raise ValueError(
+                f"CSV must contain bibkey column '{bibkey_column}'. "
+                f"Available columns: {list(input_df.columns)}"
+            )
 
         # Enrich each row
         enriched_rows = []
@@ -137,6 +190,10 @@ class EnrichedDOIUpdater(DOIUpdater):
                 base_metadata["doi"] = str(row["doi"])
             if "link" in row and row["link"]:
                 base_metadata["link"] = str(row["link"])
+            if "title" in row and row["title"]:
+                base_metadata["title"] = str(row["title"])
+            if "assigned_authors" in row and row["assigned_authors"]:
+                base_metadata["assigned_authors"] = str(row["assigned_authors"])
             if "update_type" in row and row["update_type"]:
                 base_metadata["update_type"] = str(row["update_type"])
             if "update_reason" in row and row["update_reason"]:
@@ -204,7 +261,7 @@ class EnrichedDOIUpdater(DOIUpdater):
             csv_row["title"] = str(enriched["title"])
 
         if "_year" in enriched:
-            csv_row["year"] = str(enriched["_year"])
+            csv_row["_year"] = str(enriched["_year"])
 
         if "author_given_name" in enriched:
             csv_row["author_given_name"] = str(enriched["author_given_name"])
@@ -227,8 +284,20 @@ class EnrichedDOIUpdater(DOIUpdater):
         if "last_page" in enriched:
             csv_row["last_page"] = str(enriched["last_page"])
 
-        # Journal ISSN (use default if not in bibliography)
-        csv_row["journal_issn"] = str(enriched.get("journal_issn", "1234-5678"))
+        # Journal ISSN - look up from journal name if available
+        journal_title = enriched.get("journal_title", "")
+        if journal_title and journal_title in JOURNAL_ISSNS:
+            issn_info = JOURNAL_ISSNS[journal_title]
+            csv_row["journal_issn"] = issn_info[0]  # ISSN number
+            csv_row["issn_media_type"] = issn_info[1]  # "print" or "electronic"
+        else:
+            # Fallback if journal not in our mapping
+            csv_row["journal_issn"] = enriched.get("journal_issn", "")
+            csv_row["issn_media_type"] = "electronic"  # Default to electronic
+
+        # Publication date media type - use "print" for print journals, "online" for electronic
+        # This describes the publication medium, not the ISSN type
+        csv_row["publication_date_media_type"] = issn_info[1] if journal_title in JOURNAL_ISSNS else "online"
 
         return csv_row
 
@@ -242,7 +311,7 @@ class EnrichedDOIUpdater(DOIUpdater):
         """
         Update DOIs from CSV file with bibliography enrichment.
 
-        This method overrides the parent method to add enrichment step.
+        This method adds enrichment capability to DOI updates.
 
         Parameters
         ----------
@@ -261,23 +330,29 @@ class EnrichedDOIUpdater(DOIUpdater):
             Detailed results of update processing
         """
         # Create enriched CSV if enrichment is enabled
+        enriched_csv = csv_file
         if self.enable_enrichment:
             enriched_csv = self._create_enriched_update_csv(csv_file)
-            # Use enriched CSV for processing
-            result = super().update_dois_from_csv(enriched_csv, use_sandbox, dry_run, use_csv_metadata)
-            # Clean up temporary file if created
-            if enriched_csv != Path(csv_file):
-                try:
-                    enriched_csv.unlink()
-                except Exception:
-                    pass
-            return result
-        else:
-            # No enrichment, use original method
-            return super().update_dois_from_csv(csv_file, use_sandbox, dry_run, use_csv_metadata)
+
+        # Process the CSV (enriched or original) using parent's process_updates method
+        result = self.process_updates(
+            csv_file=enriched_csv,
+            use_sandbox=use_sandbox,
+            dry_run=dry_run,
+            use_csv_metadata=use_csv_metadata,
+        )
+
+        # Clean up temporary file if created
+        if self.enable_enrichment and enriched_csv != Path(csv_file):
+            try:
+                Path(enriched_csv).unlink()
+            except Exception:
+                print(f"⚠️  Could not delete temporary file: {enriched_csv}") 
+
+        return result
 
 
-def main():
+def main() -> None:
     """Main entry point for enriched DOI updates."""
     parser = argparse.ArgumentParser(
         description="Update DOIs with automatic bibliography enrichment",
@@ -313,6 +388,7 @@ Environment variables required:
     parser.add_argument("--dry-run", action="store_true", help="Generate XML without submitting")
     parser.add_argument("--no-enrichment", action="store_true", help="Disable bibliography enrichment")
     parser.add_argument("--bibliography", type=str, help="Bibliography ODS path (overrides env var)")
+    parser.add_argument("--encoding", type=str, help="CSV file encoding (default: auto-detect)")
     parser.add_argument(
         "--use-csv-metadata",
         action="store_true",
@@ -342,6 +418,7 @@ Environment variables required:
             sandbox_password=sandbox_password,
             bibliography_path=args.bibliography,
             enable_enrichment=not args.no_enrichment,
+            csv_encoding=args.encoding,
         )
     except Exception as e:
         print(f"❌ Initialization error: {e}")
@@ -360,7 +437,10 @@ Environment variables required:
     # Run updates
     try:
         results = updater.update_dois_from_csv(
-            csv_file=args.csv_file, use_sandbox=use_sandbox, dry_run=args.dry_run, use_csv_metadata=args.use_csv_metadata
+            csv_file=args.csv_file,
+            use_sandbox=use_sandbox,
+            dry_run=args.dry_run,
+            use_csv_metadata=args.use_csv_metadata,
         )
 
         # Print summary
