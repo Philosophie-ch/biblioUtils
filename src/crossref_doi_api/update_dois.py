@@ -946,6 +946,7 @@ class DOIUpdater:
                     else:
                         # Submit batch
                         print(f"\n🚀 Submitting batch of {total} DOIs...")
+                        print(f"   Batch ID: {batch_id}")
                         if use_sandbox:
                             url = "https://test.crossref.org/servlet/deposit"
                         else:
