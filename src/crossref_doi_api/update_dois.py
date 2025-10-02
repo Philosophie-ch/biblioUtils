@@ -549,6 +549,7 @@ class DOIUpdater:
             '      <journal_article publication_type="full_text">',
             '        <titles>',
             f'          <title>{self._escape_xml(title)}</title>',
+            # Omitting <subtitle> - Crossref will null out old publisher subtitles
             '        </titles>',
             '        <contributors>',
         ]
@@ -710,6 +711,7 @@ class DOIUpdater:
                 '      <journal_article publication_type="full_text">',
                 '        <titles>',
                 f'          <title>{self._escape_xml(title)}</title>',
+                # Omitting <subtitle> - Crossref will null out old publisher subtitles
                 '        </titles>',
                 '        <contributors>',
             ]

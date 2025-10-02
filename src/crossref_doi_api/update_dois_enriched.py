@@ -425,8 +425,57 @@ Environment variables required:
         print(f"❌ Initialization error: {e}")
         sys.exit(1)
 
-    # Confirm production use
+    # Enrich and validate BEFORE asking for confirmation
     use_sandbox = args.sandbox
+
+    # Pre-validate: enrich CSV and validate entries
+    print("\n🔍 Pre-validating batch...")
+    try:
+        # Create enriched CSV
+        enriched_csv = args.csv_file
+        if updater.enable_enrichment:
+            enriched_csv = updater._create_enriched_update_csv(args.csv_file)
+
+        # Read enriched CSV and validate
+        import csv as csv_module
+        with open(enriched_csv, 'r', encoding='utf-8') as f:
+            reader = csv_module.DictReader(f)
+            batch_rows = list(reader)
+
+        if batch_rows:
+            validation_errors = updater.validate_batch_rows(batch_rows)
+
+            if validation_errors:
+                print(f"\n❌ Validation failed! Found {len(validation_errors)} error(s):\n")
+                for error in validation_errors:
+                    print(f"   • {error}")
+                print(f"\nPlease fix these errors before attempting to submit.")
+
+                # Clean up temp file
+                if updater.enable_enrichment and enriched_csv != Path(args.csv_file):
+                    try:
+                        Path(enriched_csv).unlink()
+                    except Exception:
+                        pass
+
+                sys.exit(1)
+
+            print(f"✅ All {len(batch_rows)} entries validated successfully\n")
+
+        # Clean up temp file - we'll recreate it in update_dois_from_csv
+        if updater.enable_enrichment and enriched_csv != Path(args.csv_file):
+            try:
+                Path(enriched_csv).unlink()
+            except Exception:
+                pass
+
+    except Exception as e:
+        print(f"❌ Validation error: {e}")
+        import traceback
+        traceback.print_exc()
+        sys.exit(1)
+
+    # NOW ask for production confirmation (after validation passed)
     if not use_sandbox and not args.dry_run:
         print("\n⚠️  WARNING: You are about to update DOIs in PRODUCTION!")
         print("   This will modify REAL DOIs permanently.")
