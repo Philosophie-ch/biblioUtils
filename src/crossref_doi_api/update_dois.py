@@ -107,6 +107,33 @@ class DOIUpdater:
         self.sandbox_password = sandbox_password or password
         self.depositor_name = depositor_name
         self.depositor_email = depositor_email
+        self._timestamp: Optional[str] = None
+        self._timestamp_full: Optional[str] = None
+
+    def _get_timestamp(self) -> str:
+        """
+        Get or create a shared timestamp for XML submissions.
+        Uses milliseconds (3 digits) which is accepted by Crossref and allows version increment.
+        Format: YYYYMMDDHHmmssSSS (17 digits)
+        """
+        if self._timestamp is None:
+            now = datetime.now()
+            # Use milliseconds (first 3 digits of microseconds)
+            self._timestamp = now.strftime('%Y%m%d%H%M%S') + f"{now.microsecond // 1000:03d}"
+            self._timestamp_full = now.strftime('%Y%m%d%H%M%S%f')
+        return self._timestamp
+
+    def _get_timestamp_full(self) -> str:
+        """
+        Get or create a shared timestamp with microseconds for batch IDs.
+        This includes full microseconds for uniqueness.
+        Format: YYYYMMDDHHmmssuuuuuu (20 digits)
+        """
+        if self._timestamp_full is None:
+            now = datetime.now()
+            self._timestamp = now.strftime('%Y%m%d%H%M%S') + f"{now.microsecond // 1000:03d}"
+            self._timestamp_full = now.strftime('%Y%m%d%H%M%S%f')
+        return self._timestamp_full
 
     def get_existing_doi_metadata(self, doi: str) -> Optional[Dict[str, Any]]:
         """
@@ -157,7 +184,7 @@ class DOIUpdater:
         str
             Generated resource-only XML
         """
-        timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
+        timestamp = self._get_timestamp()
 
         xml_lines = [
             '<?xml version="1.0" encoding="UTF-8"?>',
@@ -218,7 +245,7 @@ class DOIUpdater:
         str
             Generated full update XML
         """
-        timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
+        timestamp = self._get_timestamp()
 
         # Extract existing metadata - use actual values only, no fake defaults
         title = existing_metadata.get('title', [''])[0] if existing_metadata.get('title') else ''
@@ -373,7 +400,7 @@ class DOIUpdater:
         """
         from collections import defaultdict
 
-        timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
+        timestamp = self._get_timestamp()
 
         # Group articles by journal + volume + issue combination
         # Key: (journal_title, volume, issue, year, issn, issn_media_type, pub_date_media_type, language)
@@ -600,7 +627,7 @@ class DOIUpdater:
         str
             Generated full update XML using CSV metadata
         """
-        timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
+        timestamp = self._get_timestamp()
         doi = row_data.get('doi', '').strip()
 
         # Extract metadata from CSV - using clean data as source of truth
@@ -872,7 +899,9 @@ class DOIUpdater:
         submit_username = self.sandbox_username if use_sandbox else self.username
         submit_password = self.sandbox_password if use_sandbox else self.password
 
-        batch_id = f"philosophie-update-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
+        # Generate batch_id with microseconds for uniqueness
+        timestamp_full = self._get_timestamp_full()
+        batch_id = f"philosophie-update-{timestamp_full[:8]}-{timestamp_full[8:]}"
 
         results = []
         successful = 0

@@ -86,11 +86,13 @@ def check_submission_status(
             # Parse basic info from XML
             if "batch_id" in xml_content or "doi_batch_diagnostic" in xml_content:
                 print("\n✅ Submission found!")
-                print(f"\nResponse (first 2000 chars):\n{'-'*80}")
-                print(xml_content[:2000])
-                if len(xml_content) > 2000:
-                    print(f"\n... (truncated, total length: {len(xml_content)} chars)")
-                print(f"{'-'*80}\n")
+
+                # Save full response to file
+                log_filename = f"submission_status_{batch_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xml"
+                with open(log_filename, 'w', encoding='utf-8') as f:
+                    f.write(xml_content)
+                print(f"\n💾 Full response saved to: {log_filename}")
+                print(f"   (Total length: {len(xml_content)} chars)\n")
 
                 # Try to extract key information
                 analyze_submission_result(xml_content)
@@ -142,11 +144,11 @@ def analyze_submission_result(xml_content: str) -> None:
         # Simple extraction of msg tags
         import re
         errors = re.findall(r'<msg>(.*?)</msg>', xml_content, re.DOTALL)
-        for i, error in enumerate(errors[:5], 1):  # Show first 5 errors
+        for i, error in enumerate(errors[:100], 1):  # Show first 100 errors
             error_clean = error.strip().replace('\n', ' ')[:200]
             print(f"   {i}. {error_clean}")
-        if len(errors) > 5:
-            print(f"   ... and {len(errors) - 5} more errors")
+        if len(errors) > 100:
+            print(f"   ... and {len(errors) - 100} more errors")
 
     # Check batch status
     if 'batch_status="completed"' in xml_content:

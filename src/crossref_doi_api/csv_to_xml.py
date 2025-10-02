@@ -182,7 +182,7 @@ class CSVToXMLConverter:
         data = {**defaults, **{k: v.strip() for k, v in row_data.items() if v.strip()}}
 
         # Generate timestamp
-        timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
+        timestamp = datetime.now().strftime('%Y%m%d%H%M%S%f')
 
         # Parse additional authors
         additional_authors = []
