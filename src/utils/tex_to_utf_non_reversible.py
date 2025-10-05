@@ -9,9 +9,11 @@ sed 's/^"//;s/"$//' [FILE] | sed 's/.*/"&"/' > [OUTPUT_FILE]
 """
 
 import polars as pl
+import re
 
 from pathlib import Path
 from typing import Generator, Tuple
+from re import Match
 from pylatexenc.latex2text import LatexNodes2Text
 
 from src.sdk.utils import get_logger, remove_extra_whitespace, lginf
@@ -243,6 +245,107 @@ def tex2utf_external_postprocess(text: str) -> str:
     return post_processed
 
 
+def preprocess_citet_commands(text: str, bib_df: pl.DataFrame | None) -> str:
+    """
+    Replace \citet{bibkey} commands with "Author (Year)" format.
+    Handles both single bibkeys and comma-separated lists.
+
+    Parameters
+    ----------
+    text : str
+        Input text containing \citet commands
+    bib_df : pl.DataFrame | None
+        Bibliography DataFrame with 'bibkey', 'author', and 'date' columns
+
+    Returns
+    -------
+    str
+        Text with \citet commands replaced
+    """
+    if bib_df is None:
+        return text
+
+    # Find all \citet{bibkey} or \citet{bibkey1,bibkey2,...} commands
+    cited_pattern = r'\\citet\{([^}]+)\}'
+
+    def replace_cited(match: Match[str]) -> str:
+        bibkeys_str = match.group(1)
+        # Split by comma and strip whitespace
+        bibkeys = [bk.strip() for bk in bibkeys_str.split(',')]
+
+        citations = []
+        for bibkey in bibkeys:
+            # Lookup bibkey in bibliography
+            bib_row = bib_df.filter(pl.col("bibkey") == bibkey)
+
+            if len(bib_row) == 0:
+                lgr.warning(f"Bibkey '{bibkey}' not found in bibliography")
+                citations.append(f"[{bibkey}]")
+                continue
+
+            # Get author and date
+            row_dict = bib_row.row(0, named=True)
+            author_full = row_dict.get("author")
+            date = row_dict.get("date")
+
+            # Handle None values and convert to string
+            author_full = str(author_full) if author_full is not None else ""
+            date = str(date) if date is not None else ""
+
+            author_full = author_full.strip()
+            date = date.strip()
+
+            # If no author, try editor as fallback
+            if not author_full:
+                editor = row_dict.get("editor")
+                if editor is not None:
+                    author_full = str(editor).strip()
+
+            # If still no author, use bibkey as fallback
+            if not author_full:
+                citations.append(f"[{bibkey}] ({date})" if date else f"[{bibkey}]")
+                continue
+
+            # Parse author: split by " and " to get individual authors
+            # Then for each author, take only the last name (before the ", ")
+            author_parts = author_full.split(" and ")
+            last_names = []
+            for author in author_parts:
+                # Split at ", " and take the first part (last name)
+                if ", " in author:
+                    last_name = author.split(", ")[0]
+                else:
+                    last_name = author.strip()
+                if last_name:  # Only add non-empty last names
+                    last_names.append(last_name)
+
+            # Join last names with " and "
+            if len(last_names) == 0:
+                author_str = f"[{bibkey}]"
+            elif len(last_names) == 1:
+                author_str = last_names[0]
+            elif len(last_names) == 2:
+                author_str = f"{last_names[0]} and {last_names[1]}"
+            else:
+                author_str = ", ".join(last_names[:-1]) + f", and {last_names[-1]}"
+
+            # Format as "Author (Date)"
+            citations.append(f"{author_str} ({date})" if date else author_str)
+
+        # Join multiple citations with commas and "and" for the last one
+        if len(citations) == 0:
+            return ""
+        elif len(citations) == 1:
+            return citations[0]
+        elif len(citations) == 2:
+            return f"{citations[0]} and {citations[1]}"
+        else:
+            return ", ".join(citations[:-1]) + f", and {citations[-1]}"
+
+    result = re.sub(cited_pattern, replace_cited, text)
+    return result
+
+
 def tex2utf_external(latex_input: str) -> str:
     """
     Replace LaTeX special characters with their Unicode equivalents using the pylatexenc library.
@@ -293,7 +396,39 @@ def read_input_file(file: str, encoding: str | None, column: str | None) -> TRea
     return result
 
 
-def main(file: str, encoding: str | None, column: str | None) -> str:
+def load_bibliography(bib_path: str) -> pl.DataFrame:
+    """
+    Load bibliography ODS file.
+
+    Parameters
+    ----------
+    bib_path : str
+        Path to the bibliography ODS file
+
+    Returns
+    -------
+    pl.DataFrame
+        Bibliography DataFrame
+    """
+    path = Path(bib_path)
+
+    if not path.exists():
+        raise FileNotFoundError(f"Bibliography file not found: {bib_path}")
+
+    lginf("load_bibliography", f"Loading bibliography from '{bib_path}'", lgr)
+    df = pl.read_ods(bib_path, has_header=True)
+
+    # Check required columns
+    required_cols = ["bibkey", "author", "date"]
+    missing_cols = [col for col in required_cols if col not in df.columns]
+
+    if missing_cols:
+        raise ValueError(f"Bibliography file missing required columns: {missing_cols}")
+
+    return df
+
+
+def main(file: str, encoding: str | None, column: str | None, bib_path: str | None) -> str:
     try:
         frame = "main"
 
@@ -301,8 +436,21 @@ def main(file: str, encoding: str | None, column: str | None) -> str:
 
         lines, num_lines = read_input_file(file, encoding, column)
 
+        # Load bibliography if provided
+        bib_df = None
+        if bib_path:
+            bib_df = load_bibliography(bib_path)
+
         lginf(frame, f"Processing {num_lines} lines", lgr)
-        processed_lines = (tex2utf_external(line) for line in lines)
+
+        # Preprocess citet commands and convert LaTeX to UTF
+        def process_line(line: str) -> str:
+            # First, replace \citet commands
+            preprocessed = preprocess_citet_commands(line, bib_df)
+            # Then convert LaTeX to UTF
+            return tex2utf_external(preprocessed)
+
+        processed_lines = (process_line(line) for line in lines)
 
         lginf(frame, "Joining the output", lgr)
 
@@ -335,12 +483,21 @@ def cli() -> None:
         "-c", "--column", type=str, help="Column name in the .ods file to convert to Unicode.", required=False
     )
 
+    parser.add_argument(
+        "-b",
+        "--bibliography",
+        type=str,
+        help="Path to bibliography ODS file for resolving \\citet{bibkey} commands.",
+        required=False,
+    )
+
     file = parser.parse_args().file
     encoding = parser.parse_args().encoding
     column = parser.parse_args().column
+    bib_path = parser.parse_args().bibliography
 
     frame = "cli"
-    result = main(file, encoding, column)
+    result = main(file, encoding, column, bib_path)
     lginf(frame, "Writing the output to stdout", lgr)
     print(result)
 
