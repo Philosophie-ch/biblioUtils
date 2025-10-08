@@ -28,10 +28,7 @@ import time
 
 
 def check_submission_status(
-    batch_id: str,
-    username: str,
-    password: str,
-    use_sandbox: bool = False
+    batch_id: str, username: str, password: str, use_sandbox: bool = False
 ) -> Optional[Dict[str, Any]]:
     """
     Check the status of a submission using Crossref admin API.
@@ -60,12 +57,7 @@ def check_submission_status(
     # Crossref admin API endpoint for submission status
     url = f"{base_url}/servlet/submissionDownload"
 
-    params = {
-        "usr": username,
-        "pwd": password,
-        "doi_batch_id": batch_id,
-        "type": "result"
-    }
+    params = {"usr": username, "pwd": password, "doi_batch_id": batch_id, "type": "result"}
 
     try:
         print(f"🔍 Querying submission status for batch: {batch_id}")
@@ -77,10 +69,22 @@ def check_submission_status(
             # Response is XML content
             xml_content = response.text
 
+            # Always dump first 100 lines at the end
+            def dump_response() -> None:
+                print(f"\n📄 First 100 lines of Crossref response:")
+                print(f"{'-'*80}")
+                lines = xml_content.split('\n')
+                for i, line in enumerate(lines[:100], 1):
+                    print(f"{i:3d} | {line}")
+                if len(lines) > 100:
+                    print(f"... and {len(lines) - 100} more lines")
+                print(f"{'-'*80}")
+
             # Check if submission is actually found
             if 'status="unknown_submission"' in xml_content:
                 print("\n⚠️  Submission not found or results not ready yet")
                 print("   This is normal if the submission was just made - processing can take 10-30 minutes")
+                dump_response()
                 return None
 
             # Parse basic info from XML
@@ -97,10 +101,13 @@ def check_submission_status(
                 # Try to extract key information
                 analyze_submission_result(xml_content)
 
+                # Dump response
+                dump_response()
+
                 return {"success": True, "xml": xml_content}
             else:
                 print("\n⚠️  Unexpected response format")
-                print(f"Response: {xml_content[:500]}")
+                dump_response()
                 return None
 
         elif response.status_code == 404:
@@ -143,6 +150,7 @@ def analyze_submission_result(xml_content: str) -> None:
         print("\n🔍 Error details:")
         # Simple extraction of msg tags
         import re
+
         errors = re.findall(r'<msg>(.*?)</msg>', xml_content, re.DOTALL)
         for i, error in enumerate(errors[:100], 1):  # Show first 100 errors
             error_clean = error.strip().replace('\n', ' ')[:200]
@@ -204,35 +212,14 @@ def main() -> int:
     parser = argparse.ArgumentParser(
         description="Check Crossref DOI submission status",
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog=__doc__
+        epilog=__doc__,
     )
 
-    parser.add_argument(
-        'batch_id',
-        nargs='?',
-        help='Batch ID to check (e.g., philosophie-update-20251001-173256)'
-    )
-    parser.add_argument(
-        '--sandbox',
-        action='store_true',
-        help='Query sandbox environment'
-    )
-    parser.add_argument(
-        '--production',
-        action='store_true',
-        help='Query production environment'
-    )
-    parser.add_argument(
-        '--list-recent',
-        action='store_true',
-        help='List recent batch IDs from local XML files'
-    )
-    parser.add_argument(
-        '--wait',
-        type=int,
-        metavar='SECONDS',
-        help='Poll for results every N seconds until available'
-    )
+    parser.add_argument('batch_id', nargs='?', help='Batch ID to check (e.g., philosophie-update-20251001-173256)')
+    parser.add_argument('--sandbox', action='store_true', help='Query sandbox environment')
+    parser.add_argument('--production', action='store_true', help='Query production environment')
+    parser.add_argument('--list-recent', action='store_true', help='List recent batch IDs from local XML files')
+    parser.add_argument('--wait', type=int, metavar='SECONDS', help='Poll for results every N seconds until available')
 
     args = parser.parse_args()
 
@@ -289,12 +276,7 @@ def main() -> int:
             print(f"Attempt #{attempt} - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
             print(f"{'='*80}")
 
-            result = check_submission_status(
-                args.batch_id,
-                query_username,
-                query_password,
-                use_sandbox
-            )
+            result = check_submission_status(args.batch_id, query_username, query_password, use_sandbox)
 
             if result and result.get('success'):
                 print("\n✅ Results retrieved successfully!")
@@ -310,12 +292,7 @@ def main() -> int:
             attempt += 1
     else:
         # Single check
-        result = check_submission_status(
-            args.batch_id,
-            query_username,
-            query_password,
-            use_sandbox
-        )
+        result = check_submission_status(args.batch_id, query_username, query_password, use_sandbox)
 
         if result and result.get('success'):
             return 0

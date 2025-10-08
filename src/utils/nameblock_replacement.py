@@ -9,8 +9,8 @@ from aletk.utils import get_logger, remove_extra_whitespace
 
 
 # Define here the delimiter used to separate nameblocks in the raw_nameblocks column
-RAW_NAMEBLOCKS_DELIMITER = ""  # Leave empty to not split the raw nameblocks
-PROCESSED_NAMEBLOCKS_DELIMITER = ""
+RAW_NAMEBLOCKS_DELIMITER = " and "  # Leave empty to not split the raw nameblocks
+PROCESSED_NAMEBLOCKS_DELIMITER = ", "
 
 lgr = get_logger(__name__)
 
@@ -52,7 +52,7 @@ def read_replacement_table(replacement_table_file: str, encoding: str) -> dict[s
 
         case ".csv":
             with open(replacement_table_file, "r", encoding=encoding) as f:
-                reader = csv.reader(f, delimiter="\t")
+                reader = csv.reader(f, delimiter=",")
 
                 replacement_table = {f"{row[0]}": f"{row[1]}" for row in reader if len(row) >= 2}
 
