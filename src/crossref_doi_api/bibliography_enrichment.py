@@ -25,8 +25,11 @@ from philoch_bib_sdk.converters.plaintext.bibitem.date_parser import parse_date
 from philoch_bib_sdk.logic.models import TBibString, Author, BibItemDateAttr
 from aletk.ResultMonad import Ok, Err
 
+# Load environment variables first
+load_dotenv()
+
 # Configuration constants
-BIBKEY_COLUMN_NAME = os.getenv("BIBKEY_COLUMN_NAME", "_article_bib_key")
+BIBKEY_COLUMN_NAME = os.getenv("BIBKEY_COLUMN_NAME", "bibkey")
 
 JSONValue = Union[str, int, float, bool, None, Dict[str, Any], List[Any]]
 JSONObject = Dict[str, JSONValue]

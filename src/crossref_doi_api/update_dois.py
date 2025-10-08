@@ -113,26 +113,35 @@ class DOIUpdater:
     def _get_timestamp(self) -> str:
         """
         Get or create a shared timestamp for XML submissions.
-        Uses milliseconds (3 digits) which is accepted by Crossref and allows version increment.
-        Format: YYYYMMDDHHmmssSSS (17 digits)
+        Based on working examples like 2019052904172700992 (19 digits).
+        Format: YYYYMMDDHHMMSSmmmmm where mmmmm is 5-digit millisecond-based value
+        Total: 19 digits
         """
         if self._timestamp is None:
             now = datetime.now()
-            # Use milliseconds (first 3 digits of microseconds)
-            self._timestamp = now.strftime('%Y%m%d%H%M%S') + f"{now.microsecond // 1000:03d}"
-            self._timestamp_full = now.strftime('%Y%m%d%H%M%S%f')
+            # Format: YYYYMMDDHHMMSSmmmmm (19 digits)
+            # Convert microseconds to 5-digit subsecond value
+            base = now.strftime('%Y%m%d%H%M%S')
+            # Take first 5 digits of microsecond value (drops last digit)
+            subsecond = f"{now.microsecond // 10:05d}"
+            self._timestamp = base + subsecond
+
+            # For batch ID, use same timestamp
+            self._timestamp_full = self._timestamp
         return self._timestamp
 
     def _get_timestamp_full(self) -> str:
         """
-        Get or create a shared timestamp with microseconds for batch IDs.
-        This includes full microseconds for uniqueness.
-        Format: YYYYMMDDHHmmssuuuuuu (20 digits)
+        Get or create a shared timestamp for batch IDs.
+        Format: YYYYMMDDHHMMSSmmmmm (19 digits) - same as XML timestamp
         """
         if self._timestamp_full is None:
             now = datetime.now()
-            self._timestamp = now.strftime('%Y%m%d%H%M%S') + f"{now.microsecond // 1000:03d}"
-            self._timestamp_full = now.strftime('%Y%m%d%H%M%S%f')
+            # Use same format for both
+            base = now.strftime('%Y%m%d%H%M%S')
+            subsecond = f"{now.microsecond // 10:05d}"
+            self._timestamp = base + subsecond
+            self._timestamp_full = self._timestamp
         return self._timestamp_full
 
     def get_existing_doi_metadata(self, doi: str) -> Optional[Dict[str, Any]]:

@@ -438,6 +438,7 @@ Environment variables required:
 
         # Read enriched CSV and validate
         import csv as csv_module
+
         with open(enriched_csv, 'r', encoding='utf-8') as f:
             reader = csv_module.DictReader(f)
             batch_rows = list(reader)
@@ -472,6 +473,7 @@ Environment variables required:
     except Exception as e:
         print(f"❌ Validation error: {e}")
         import traceback
+
         traceback.print_exc()
         sys.exit(1)
 
