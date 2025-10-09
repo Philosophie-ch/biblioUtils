@@ -352,40 +352,50 @@ class DOIUpdater:
         """
         Validate all rows in a batch and return a list of validation errors.
         Returns empty list if all rows are valid.
+
+        Differentiates between article and journal_issue content types:
+        - Articles: Require title, authors, year, link
+        - Journal issues: Require year, link (no title/authors required)
         """
         errors = []
 
         for i, row in enumerate(rows, 1):
             doi = row.get('doi', '').strip()
-            title = row.get('title', '').strip()
-            author_given = row.get('author_given_name', '').strip()
-            author_surname = row.get('author_surname', '').strip()
+            content_type = row.get('content_type', '').strip()
 
             # Validate DOI
             if not doi:
                 errors.append(f"Row {i}: Missing DOI")
 
-            # Validate title
-            if not title:
-                errors.append(f"Row {i} (DOI: {doi or 'unknown'}): Missing title")
-
-            # Validate author information
-            if not author_given and not author_surname:
-                errors.append(
-                    f"Row {i} (DOI: {doi or 'unknown'}): Missing author information. "
-                    f"Articles must have author_given_name and/or author_surname. "
-                    f"Check that 'assigned_authors' field is set in the CSV and authors exist in the authors CSV."
-                )
-
-            # Validate other required fields
+            # Validate year (required for all types)
             year = row.get('_year', '').strip()
             if not year:
                 errors.append(f"Row {i} (DOI: {doi or 'unknown'}): Missing year (_year)")
 
-            # Validate URL (field is 'link' in CSV)
+            # Validate URL (required for all types)
             link = row.get('link', '').strip()
             if not link:
                 errors.append(f"Row {i} (DOI: {doi or 'unknown'}): Missing resource URL (link)")
+
+            # Content-type specific validation
+            if content_type == 'journal_issue':
+                # Journal issues don't require title or authors
+                pass
+            else:
+                # Articles require title and authors
+                title = row.get('title', '').strip()
+                author_given = row.get('author_given_name', '').strip()
+                author_surname = row.get('author_surname', '').strip()
+
+                if not title:
+                    errors.append(f"Row {i} (DOI: {doi or 'unknown'}): Missing title")
+
+                if not author_given and not author_surname:
+                    errors.append(
+                        f"Row {i} (DOI: {doi or 'unknown'}): Missing author information. "
+                        f"Articles must have author_given_name and/or author_surname. "
+                        f"Check that 'assigned_authors' field is set in the CSV and authors exist in the authors CSV."
+                    )
 
         return errors
 
@@ -394,11 +404,13 @@ class DOIUpdater:
         Generate batch XML for multiple DOI updates in a single submission.
 
         Groups articles by journal and creates a single doi_batch containing all updates.
+        Note: Journal issue DOIs (content_type="journal_issue") are processed separately
+        and cannot be batched with articles.
 
         Parameters
         ----------
         rows : List[Dict[str, str]]
-            List of CSV row data for all articles to update
+            List of CSV row data for all articles/issues to update
         batch_id : str
             Unique batch identifier
 
@@ -411,11 +423,36 @@ class DOIUpdater:
 
         timestamp = self._get_timestamp()
 
+        # Separate journal issues from articles
+        article_rows = []
+        issue_rows = []
+
+        for row in rows:
+            content_type = row.get('content_type', '').strip()
+            if content_type == 'journal_issue':
+                issue_rows.append(row)
+            else:
+                article_rows.append(row)
+
+        # Check for mixed batches - not supported
+        if article_rows and issue_rows:
+            raise ValueError(
+                f"Mixed batch detected: {len(article_rows)} articles and {len(issue_rows)} journal issues. "
+                f"Please submit articles and journal issues in separate CSV files. "
+                f"Articles cannot be mixed with journal issues in a single batch submission."
+            )
+
+        # All journal issues - generate issue batch XML
+        if issue_rows and not article_rows:
+            return self._generate_batch_journal_issues_xml(issue_rows, batch_id, timestamp)
+
+        # All articles - continue with article batch generation below
+
         # Group articles by journal + volume + issue combination
         # Key: (journal_title, volume, issue, year, issn, issn_media_type, pub_date_media_type, language)
         journal_issues: Dict[Tuple[str, str, str, str, str, str, str, str], List[Dict[str, str]]] = defaultdict(list)
 
-        for row in rows:
+        for row in article_rows:
             journal_title = row.get('journal_title', 'Philosophie.ch Publications').strip()
             volume = row.get('volume', '').strip()
             issue = row.get('issue', '').strip()
@@ -778,6 +815,243 @@ class DOIUpdater:
 
         xml_lines.extend(
             ['        </doi_data>', '      </journal_article>', '    </journal>', '  </body>', '</doi_batch>']
+        )
+
+        return '\n'.join(xml_lines)
+
+    def _generate_batch_journal_issues_xml(
+        self, issue_rows: List[Dict[str, str]], batch_id: str, timestamp: str
+    ) -> str:
+        """
+        Generate batch XML for multiple journal issue DOIs.
+
+        Each journal issue gets its own <journal> block to comply with Crossref schema.
+        The schema allows only ONE <journal_issue> per <journal> element.
+
+        Parameters
+        ----------
+        issue_rows : List[Dict[str, str]]
+            List of journal issue rows
+        batch_id : str
+            Unique batch identifier
+        timestamp : str
+            Timestamp for the batch
+
+        Returns
+        -------
+        str
+            Complete batch XML with all journal issues
+        """
+        # Build XML header
+        xml_lines = [
+            '<?xml version="1.0" encoding="UTF-8"?>',
+            '<doi_batch version="5.4.0" xmlns="http://www.crossref.org/schema/5.4.0"',
+            '           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"',
+            '           xsi:schemaLocation="http://www.crossref.org/schema/5.4.0',
+            '           http://www.crossref.org/schema/crossref5.4.0.xsd">',
+            '',
+            '  <head>',
+            f'    <doi_batch_id>{batch_id}</doi_batch_id>',
+            f'    <timestamp>{timestamp}</timestamp>',
+            '    <depositor>',
+            f'      <depositor_name>{self.depositor_name}</depositor_name>',
+            f'      <email_address>{self.depositor_email}</email_address>',
+            '    </depositor>',
+            f'    <registrant>{self.depositor_name}</registrant>',
+            '  </head>',
+            '',
+            '  <body>',
+        ]
+
+        # Each issue gets its own <journal> block (Crossref schema requirement)
+        # Schema allows only ONE <journal_issue> per <journal> element
+        for row in issue_rows:
+            journal_title = row.get('journal_title', 'Philosophie.ch Publications').strip()
+            journal_issn = row.get('journal_issn', '').strip()
+            issn_media_type = row.get('issn_media_type', 'electronic').strip()
+            language = row.get('language', 'en').strip()
+            year = row.get('_year', '').strip()
+            publication_date_media_type = row.get('publication_date_media_type', 'online').strip()
+            volume = row.get('volume', '').strip()
+            issue = row.get('issue', '').strip()
+            issue_title = row.get('issue_title', '').strip()
+            doi = row.get('doi', '').strip()
+            new_url = row.get('link', '').strip()
+
+            # Start journal block
+            xml_lines.extend(
+                [
+                    '    <journal>',
+                    f'      <journal_metadata language="{language}">',
+                    f'        <full_title>{self._escape_xml(journal_title)}</full_title>',
+                ]
+            )
+
+            if journal_issn:
+                xml_lines.append(f'        <issn media_type="{issn_media_type}">{journal_issn}</issn>')
+
+            xml_lines.extend(['      </journal_metadata>', '', '      <journal_issue>'])
+
+            # Add special issue title if present
+            if issue_title:
+                xml_lines.extend(
+                    [
+                        '        <titles>',
+                        f'          <title>{self._escape_xml(issue_title)}</title>',
+                        '        </titles>',
+                    ]
+                )
+
+            xml_lines.extend(
+                [
+                    f'        <publication_date media_type="{publication_date_media_type}">',
+                    f'          <year>{year}</year>' if year else '          <year></year>',
+                    '        </publication_date>',
+                ]
+            )
+
+            # Add volume and issue if available
+            if volume:
+                xml_lines.extend(
+                    [
+                        '        <journal_volume>',
+                        f'          <volume>{volume}</volume>',
+                        '        </journal_volume>',
+                    ]
+                )
+
+            if issue:
+                xml_lines.append(f'        <issue>{issue}</issue>')
+
+            # DOI data for the issue
+            xml_lines.extend(
+                [
+                    '        <doi_data>',
+                    f'          <doi>{doi}</doi>',
+                    f'          <resource>{self._escape_xml(new_url)}</resource>',
+                    '        </doi_data>',
+                    '      </journal_issue>',
+                    '    </journal>',
+                    '',
+                ]
+            )
+
+        xml_lines.extend(['  </body>', '</doi_batch>'])
+
+        return '\n'.join(xml_lines)
+
+    def generate_journal_issue_xml(self, row_data: Dict[str, str], batch_id: str) -> str:
+        """
+        Generate XML for journal issue DOI (not an article).
+
+        Parameters
+        ----------
+        row_data : Dict[str, str]
+            CSV row data with journal issue metadata
+        batch_id : str
+            Unique batch identifier
+
+        Returns
+        -------
+        str
+            Generated XML for journal issue
+        """
+        timestamp = self._get_timestamp()
+        doi = row_data.get('doi', '').strip()
+        new_url = row_data.get('link', '').strip()
+        year = row_data.get('_year', '').strip()
+
+        # Journal information
+        journal_title = row_data.get('journal_title', 'Philosophie.ch Publications').strip()
+        journal_issn = row_data.get('journal_issn', '').strip()
+        issn_media_type = row_data.get('issn_media_type', 'electronic').strip()
+        publication_date_media_type = row_data.get('publication_date_media_type', 'online').strip()
+        volume = row_data.get('volume', '').strip()
+        issue = row_data.get('issue', '').strip()
+        language = row_data.get('language', 'en').strip()
+
+        # Optional special issue title
+        issue_title = row_data.get('issue_title', '').strip()
+
+        # Build XML structure
+        xml_lines = [
+            '<?xml version="1.0" encoding="UTF-8"?>',
+            '<doi_batch version="5.4.0" xmlns="http://www.crossref.org/schema/5.4.0"',
+            '           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"',
+            '           xsi:schemaLocation="http://www.crossref.org/schema/5.4.0',
+            '           http://www.crossref.org/schema/crossref5.4.0.xsd">',
+            '',
+            '  <head>',
+            f'    <doi_batch_id>{batch_id}</doi_batch_id>',
+            f'    <timestamp>{timestamp}</timestamp>',
+            '    <depositor>',
+            f'      <depositor_name>{self.depositor_name}</depositor_name>',
+            f'      <email_address>{self.depositor_email}</email_address>',
+            '    </depositor>',
+            f'    <registrant>{self.depositor_name}</registrant>',
+            '  </head>',
+            '',
+            '  <body>',
+            '    <journal>',
+            f'      <journal_metadata language="{language}">',
+            f'        <full_title>{self._escape_xml(journal_title)}</full_title>',
+        ]
+
+        # Add ISSN if available
+        if journal_issn:
+            xml_lines.append(f'        <issn media_type="{issn_media_type}">{journal_issn}</issn>')
+
+        xml_lines.extend(
+            [
+                '      </journal_metadata>',
+                '',
+                '      <journal_issue>',
+            ]
+        )
+
+        # Add special issue title if present
+        if issue_title:
+            xml_lines.extend(
+                [
+                    '        <titles>',
+                    f'          <title>{self._escape_xml(issue_title)}</title>',
+                    '        </titles>',
+                ]
+            )
+
+        xml_lines.extend(
+            [
+                f'        <publication_date media_type="{publication_date_media_type}">',
+                f'          <year>{year}</year>' if year else '          <year></year>',
+                '        </publication_date>',
+            ]
+        )
+
+        # Add volume and issue if available
+        if volume:
+            xml_lines.extend(
+                [
+                    '        <journal_volume>',
+                    f'          <volume>{volume}</volume>',
+                    '        </journal_volume>',
+                ]
+            )
+
+        if issue:
+            xml_lines.append(f'        <issue>{issue}</issue>')
+
+        # DOI data for the issue itself
+        xml_lines.extend(
+            [
+                '        <doi_data>',
+                f'          <doi>{doi}</doi>',
+                f'          <resource>{self._escape_xml(new_url)}</resource>',
+                '        </doi_data>',
+                '      </journal_issue>',
+                '    </journal>',
+                '  </body>',
+                '</doi_batch>',
+            ]
         )
 
         return '\n'.join(xml_lines)
