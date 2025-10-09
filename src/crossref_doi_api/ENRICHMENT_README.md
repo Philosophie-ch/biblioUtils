@@ -1,10 +1,62 @@
-# Bibliography Enrichment for DOI Registration
+# DOI Registration with Metadata Enrichment
 
-This enhancement allows you to register and update DOIs using **minimal CSV files** that get automatically enriched with metadata from your full bibliography ODS file.
+This toolkit allows you to register and update DOIs using **two flexible modes**:
 
-## What's New?
+1. **Metadata JSON Mode** (Default, Recommended) - Provide pre-generated metadata JSON
+2. **Bibliography Enrichment Mode** - Look up metadata from your bibliography ODS file
 
-Instead of providing all metadata in your CSV files, you can now just provide:
+## Mode 1: Metadata JSON (Default)
+
+**Best for:** Journal articles and journal issues with structured metadata.
+
+Instead of providing all metadata fields in CSV, you can now just provide:
+- `doi` - The DOI to register/update
+- `metadata_json` - Pre-generated JSON string with article or journal issue metadata
+- `link` - (optional) The URL where the publication lives
+- `title` - (optional) For journal issues, combined with metadata title
+
+### Supported Metadata Types
+
+**Article Metadata:**
+```json
+{
+  "type": "article",
+  "year": 2025,
+  "issue": "1",
+  "pages": "123-145",
+  "start_page": "123",
+  "end_page": "145",
+  "volume": "78",
+  "journal": "Dialectica",
+  "license": "CC-BY-4.0",
+  "language": "en",
+  "journal_issn": "1746-8361",
+  "publication_status": "published",
+  "keywords": ["philosophy", "epistemology"]
+}
+```
+
+**Journal Issue Metadata:**
+```json
+{
+  "type": "journal_issue",
+  "issn": "1746-8361",
+  "volume": "78",
+  "issue": "1",
+  "year": 2025,
+  "license": "CC-BY-4.0",
+  "language": "en",
+  "keywords": ["philosophy"],
+  "publication_status": "published",
+  "title": "Special Issue on Epistemology"
+}
+```
+
+## Mode 2: Bibliography Enrichment
+
+**Best for:** Legacy workflows with existing bibliography ODS files.
+
+Instead of metadata JSON, provide:
 - `publication_key` (or `bibkey` or `_article_bib_key`) - the unique identifier from your bibliography
 - `link` - the URL where the publication lives
 - `doi` - (optional) the DOI to register/update
@@ -75,39 +127,63 @@ python batch_doi_registration_enriched.py full.csv --no-enrichment
 
 Enhanced DOI updates with automatic metadata enrichment.
 
-**Minimal CSV format:**
+**Metadata JSON CSV format (default):**
+```csv
+doi,metadata_json,link
+10.48106/dial.v78.i1,"{\"type\":\"journal_issue\",...}",https://philosophie.ch/dialectica-78-1
+```
+
+**Bibliography enrichment CSV format:**
 ```csv
 publication_key,link
 smith-2024-epistemology,https://philosophie.ch/new-url/smith-2024
 jones-2023-ethics,https://philosophie.ch/new-url/jones-2023
 ```
 
-*Note: Also accepts `bibkey` or `_article_bib_key` as the bibkey column name.*
+*Note: Column names are case-insensitive. Also accepts `bibkey` or `_article_bib_key`.*
 
 **Usage:**
 ```bash
-# Dry run to inspect XML
+# Metadata JSON mode (default)
 python update_dois_enriched.py updates.csv --dry-run
+
+# Bibliography enrichment mode
+python update_dois_enriched.py updates.csv --use-bibliography --dry-run
 
 # Sandbox testing
 python update_dois_enriched.py updates.csv --sandbox
 
 # Production updates
 python update_dois_enriched.py updates.csv
-
-# Disable enrichment
-python update_dois_enriched.py updates.csv --no-enrichment
 ```
 
 **Options:**
 - `--sandbox` - Use sandbox environment (default: production)
 - `--dry-run` - Generate XML without submitting
-- `--no-enrichment` - Disable bibliography enrichment
+- `--use-bibliography` - Enable bibliography enrichment mode
 - `--bibliography PATH` - Override bibliography path
+- `--encoding` - CSV file encoding (default: auto-detect)
+
+**Important:** Do NOT mix articles and journal issues in the same CSV! They must be in separate files.
 
 ## How It Works
 
-### 1. Bibliography Lookup
+### Mode 1: Metadata JSON Processing
+
+1. **Parse metadata JSON** - Validates JSON structure using Pydantic models
+2. **Type detection** - Identifies article vs journal_issue types
+3. **Field extraction** - Maps metadata fields to Crossref XML format
+4. **XML generation** - Creates appropriate Crossref XML structure
+5. **Validation** - Different validation rules for articles vs issues
+
+**Key Features:**
+- ✅ Articles require title and authors
+- ✅ Journal issues don't require title or authors
+- ✅ Separate `<journal>` blocks for each issue (Crossref schema requirement)
+- ✅ Articles can be batched together by journal/volume/issue
+- ✅ Case-insensitive CSV column names
+
+### Mode 2: Bibliography Lookup
 
 The `BibliographyEnricher` class loads your ODS file using polars and provides fast bibkey lookups:
 
@@ -217,7 +293,40 @@ for entry in enriched_data:
 
 ## Workflow Examples
 
-### Registering New DOIs
+### Workflow 1: Register Journal Issue DOIs (Metadata JSON)
+
+1. **Generate metadata JSON CSV** using `journal_issues_to_metadata_json.py`:
+```bash
+python src/utils/journal_issues_to_metadata_json.py journal_issues.csv
+```
+
+This creates a CSV with columns: `doi`, `metadata_json`, `link`, `title`
+
+2. **Test in sandbox**:
+```bash
+python update_dois_enriched.py journal_issues_metadata.csv --dry-run --sandbox
+```
+
+3. **Review generated XML**, then register:
+```bash
+python update_dois_enriched.py journal_issues_metadata.csv --sandbox
+```
+
+4. **Production registration**:
+```bash
+python update_dois_enriched.py journal_issues_metadata.csv
+```
+
+### Workflow 2: Register Article DOIs (Metadata JSON)
+
+1. **Generate metadata JSON CSV** using `bibliography_to_metadata_json.py`:
+```bash
+python src/utils/bibliography_to_metadata_json.py articles.csv
+```
+
+2. **Test and register** (same as journal issues workflow above)
+
+### Workflow 3: Register DOIs (Bibliography Enrichment)
 
 1. **Create minimal CSV** with bibkeys and URLs:
 ```csv
@@ -232,15 +341,15 @@ BIBLIOGRAPHY_ODS_PATH=/path/to/bibliography.ods
 
 3. **Test in sandbox**:
 ```bash
-python batch_doi_registration_enriched.py new_dois.csv --dry-run
+python batch_doi_registration_enriched.py new_dois.csv --use-bibliography --dry-run
 ```
 
 4. **Review generated XML**, then register:
 ```bash
-python batch_doi_registration_enriched.py new_dois.csv
+python batch_doi_registration_enriched.py new_dois.csv --use-bibliography
 ```
 
-### Updating Existing DOIs
+### Workflow 4: Update Existing DOIs (Bibliography Enrichment)
 
 1. **Create minimal CSV** with bibkeys and new URLs:
 ```csv
@@ -251,17 +360,52 @@ jones-2023,https://new-domain.com/jones-2023
 
 2. **Test update**:
 ```bash
-python update_dois_enriched.py updates.csv --dry-run
+python update_dois_enriched.py updates.csv --use-bibliography --dry-run
 ```
 
 3. **Apply updates**:
 ```bash
-python update_dois_enriched.py updates.csv
+python update_dois_enriched.py updates.csv --use-bibliography
 ```
 
 ## Troubleshooting
 
-### "Bibliography file not found"
+### "Missing 'doi' column" or "Missing 'metadata_json' column"
+
+**Solution:** Make sure your CSV has the required columns:
+- Metadata JSON mode: `doi`, `metadata_json` (case-insensitive)
+- Optional columns: `link`, `title`, `update_type`, `update_reason`
+
+### "JSON decode error" or "Metadata validation failed"
+
+**Cause:** Invalid or malformed metadata JSON.
+
+**Solution:**
+- Use the provided generator scripts (`journal_issues_to_metadata_json.py` or `bibliography_to_metadata_json.py`)
+- Validate JSON structure matches the expected schema (see examples above)
+- Check for proper escaping of quotes in JSON strings
+
+### "Missing title" or "Missing author information" for journal issues
+
+**Cause:** The `content_type` field is not set to `"journal_issue"`.
+
+**Solution:** Ensure your metadata JSON has `"type": "journal_issue"` for issue entries.
+
+### "Mixed batch detected" error
+
+**Cause:** CSV contains both articles and journal issues.
+
+**Solution:** Separate articles and journal issues into different CSV files. They cannot be processed together.
+
+### "Invalid content was found starting with element 'journal_issue'"
+
+**Cause:** Old version of code that grouped multiple issues under one `<journal>` element.
+
+**Solution:** Update to latest code. Each journal issue now gets its own `<journal>` block.
+
+### Bibliography Enrichment Mode Issues
+
+#### "Bibliography file not found"
 
 Make sure `BIBLIOGRAPHY_ODS_PATH` is set in `.env` and points to a valid ODS file:
 ```bash
@@ -269,28 +413,28 @@ echo $BIBLIOGRAPHY_ODS_PATH  # Should print the path
 ls -la $BIBLIOGRAPHY_ODS_PATH  # Should show the file
 ```
 
-### "Bibkey not found in bibliography"
+#### "Bibkey not found in bibliography"
 
 Check that:
 - The bibkey exists in your bibliography ODS
 - The bibkey column is named exactly `bibkey`
 - The bibkey values match exactly (case-sensitive)
 
-### "Author parsing failed"
+#### "Author parsing failed"
 
 If `philch-bib-sdk` is not available, the system falls back to basic parsing. To use the full parser:
 ```bash
 pip install philoch-bib-sdk
 ```
 
-### "Missing required fields"
+#### "Missing required fields"
 
 The enrichment may fail if the bibliography entry is missing critical fields like `author` or `title`. Check the bibliography entry and ensure it has:
 - Either `author` or `editor`
 - `title`
 - `date` (year)
 
-### Enrichment disabled
+#### Enrichment disabled
 
 If you see "⚠️ Bibliography enrichment disabled", check:
 1. `BIBLIOGRAPHY_ODS_PATH` is set correctly
@@ -300,10 +444,17 @@ If you see "⚠️ Bibliography enrichment disabled", check:
 
 ## Benefits
 
+### Metadata JSON Mode
+✅ **Type safety** - Pydantic validation ensures correct structure
+✅ **Journal issue support** - First-class support for issue-level DOIs
+✅ **Separation of concerns** - Clean separation between data generation and submission
+✅ **Reusable metadata** - Generated metadata can be version-controlled
+✅ **Flexible validation** - Different rules for articles vs issues
+
+### Bibliography Enrichment Mode
 ✅ **Less manual work** - No need to copy metadata from bibliography to CSV
 ✅ **Consistency** - Single source of truth for metadata
 ✅ **Bulk operations** - Process hundreds of entries with minimal CSV
-✅ **Flexibility** - Can still use full CSVs with `--no-enrichment`
 ✅ **Error prevention** - Automatic parsing reduces typos
 ✅ **Maintainability** - Update bibliography once, use everywhere
 
@@ -312,11 +463,20 @@ If you see "⚠️ Bibliography enrichment disabled", check:
 The enriched scripts inherit from the original scripts, so:
 - All original features still work
 - All original options are supported
-- Can disable enrichment with `--no-enrichment` flag
+- Can switch between metadata JSON and bibliography modes
 - Compatible with existing workflows
 
 ## Architecture
 
+### Metadata JSON Mode Architecture
+```
+CSV with metadata_json → MetadataJSONParser → Validated Metadata → XML Generation → Crossref API
+    ↓                           ↓                    ↓                    ↓
+DOI + JSON              Pydantic validation    content_type         Separate <journal>
+metadata                article vs issue       detection            blocks for issues
+```
+
+### Bibliography Enrichment Mode Architecture
 ```
 Minimal CSV → BibliographyEnricher → Full Metadata → CSVToXMLConverter → Crossref API
     ↓              ↓                      ↓                ↓
@@ -324,10 +484,20 @@ Minimal CSV → BibliographyEnricher → Full Metadata → CSVToXMLConverter →
  + link      in ODS file             field mapping     DOI submission
 ```
 
+## Related Tools
+
+### Metadata JSON Generator Scripts
+- `src/utils/journal_issues_to_metadata_json.py` - Generate metadata JSON for journal issues
+- `src/utils/bibliography_to_metadata_json.py` - Generate metadata JSON for articles from bibliography
+
+### Core Modules
+- `metadata_json_parser.py` - Pydantic-based metadata JSON parser and validator
+- `bibliography_enrichment.py` - Bibliography ODS lookup and enrichment
+- `update_dois.py` - Core DOI update logic with journal issue support
+- `update_dois_enriched.py` - Enhanced update script with both modes
+
 ## See Also
 
 - [README.md](README.md) - Main documentation for Crossref DOI tools
 - [DOI_UPDATE_FORMAT.md](DOI_UPDATE_FORMAT.md) - DOI update CSV format
-- `bibliography_enrichment.py` - Core enrichment module
-- `batch_doi_registration_enriched.py` - Enriched batch registration
-- `update_dois_enriched.py` - Enriched DOI updates
+- [CSV_FORMAT.md](CSV_FORMAT.md) - Full CSV format specification
