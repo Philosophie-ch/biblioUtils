@@ -5,8 +5,11 @@ A complete toolkit for registering DOIs with Crossref using CSV files. This syst
 ## Features
 
 - ✅ **CSV to DOI Registration**: Process CSV files and register DOIs automatically
+- ✅ **Journal Issue Support**: Register DOIs for journal issues and articles
+- ✅ **Metadata JSON Mode**: Pre-validated JSON metadata with Pydantic
+- ✅ **Bibliography Enrichment**: Auto-populate metadata from bibliography ODS files
 - ✅ **In-memory XML Generation**: No temporary files created - everything in memory
-- ✅ **Batch Processing**: Handle hundreds/thousands of DOIs efficiently  
+- ✅ **Batch Processing**: Handle hundreds/thousands of DOIs efficiently
 - ✅ **Production & Sandbox**: Test safely before registering real DOIs
 - ✅ **Conflict Detection**: Check for existing DOIs before processing
 - ✅ **Retry Logic**: Automatic retry with exponential backoff
@@ -46,6 +49,33 @@ python batch_doi_registration.py your_data.csv --production
 ```
 
 ## Main Scripts
+
+### `update_dois_enriched.py` - Enhanced DOI Update Tool (Recommended)
+
+**NEW:** Register and update DOIs with metadata JSON or bibliography enrichment.
+
+**Metadata JSON mode (default):**
+```bash
+# For journal issues
+python update_dois_enriched.py journal_issues.csv --dry-run --sandbox
+
+# For articles
+python update_dois_enriched.py articles.csv --dry-run --sandbox
+```
+
+**Bibliography enrichment mode:**
+```bash
+python update_dois_enriched.py updates.csv --use-bibliography --dry-run
+```
+
+**Options:**
+- `--sandbox` - Use sandbox environment (default: production)
+- `--dry-run` - Generate XML without submitting
+- `--use-bibliography` - Enable bibliography enrichment mode
+- `--bibliography PATH` - Override bibliography path
+- `--encoding` - CSV file encoding (default: auto-detect)
+
+See [ENRICHMENT_README.md](ENRICHMENT_README.md) for detailed usage.
 
 ### `batch_doi_registration.py` - Main DOI Registration Tool
 
@@ -181,10 +211,22 @@ Error Reporting                         Progress Tracking
 - Increase `--delay` parameter
 - Reduce concurrent processing
 
+## Documentation
+
+- 📖 [ENRICHMENT_README.md](ENRICHMENT_README.md) - Metadata JSON and bibliography enrichment guide
+- 📖 [CSV_FORMAT.md](CSV_FORMAT.md) - Full CSV format specification
+- 📖 [DOI_UPDATE_FORMAT.md](DOI_UPDATE_FORMAT.md) - DOI update CSV format
+
+## Metadata JSON Generators
+
+Generate metadata JSON CSV files from your data:
+
+- `src/utils/journal_issues_to_metadata_json.py` - Convert journal issues to metadata JSON
+- `src/utils/bibliography_to_metadata_json.py` - Convert bibliography to metadata JSON
+
 ## Support
 
 - 📧 Crossref Support: `support@crossref.org`
-- 📖 CSV Format: See `CSV_FORMAT.md`
 - 🔧 API Details: See `api_test.py`
 
 ---
