@@ -264,7 +264,7 @@ def gen_journal_html_file(
         msg = f"The output directory '{output_basedir}' does not exist and could not be created. Exiting."
         raise FileNotFoundError(msg)
 
-    journal_df = bib_df.filter(bib_df['journal_key'] == bibentity.entity_key)
+    journal_df = bib_df.filter(bib_df['journal-id'] == str(bibentity.id))
     journal_structure = build_collapsible(journal_df)
     journal_html = generate_struct_html(journal_structure, bibdiv_dict)
 
@@ -300,6 +300,105 @@ def gen_journal_html_file(
     )
 
 
+def build_publisher_collapsible(
+    bibkeys: FrozenSet[str],
+    bib_df: pl.DataFrame,
+) -> Tuple[HTMLYear, ...]:
+    """
+    Build a collapsible HTML structure for publishers, grouped by year only.
+    Simpler than journals - no volume/issue levels.
+    """
+    # Filter the bibliography to only include the bibkeys for this publisher
+    publisher_df = bib_df.filter(pl.col("bibkey").is_in(bibkeys))
+
+    years = []
+    for year_val, year_group in publisher_df.group_by("date", maintain_order=True):
+        year_str = " ".join(map(str, year_val)) if year_val[0] is not None else "No date"
+        year_bibkeys = tuple(year_group["bibkey"].to_list())
+        years.append(HTMLYear(name=year_str, contents=year_bibkeys))
+
+    return tuple(years)
+
+
+def generate_publisher_struct_html(
+    struct: Tuple[HTMLYear, ...],
+    bibdiv_dict: TBibDivDict,
+) -> str:
+    """
+    Generate HTML for publisher collapsible structure (year-only nesting).
+    Simpler than journal structure - only one level of collapsible.
+    """
+    main_html = ""
+
+    for year in struct:
+        year_html_contents = ""
+        for bibkey in year.contents:
+            if isinstance(bibkey, str):
+                bibdiv = bibdiv_dict.get(bibkey, None)
+                if bibdiv is None:
+                    lgr.warning(f"Bibkey {bibkey} not found in bibdiv_dict.")
+                    continue
+                year_html_contents += bibdiv
+                year_html_contents += "\n"
+
+        year_html = COLLAPSIBLE_YEAR_HTML_FORMAT.format(name=year.name, contents=year_html_contents)
+        main_html += year_html
+        main_html += "\n"
+
+    return main_html
+
+
+def gen_publisher_html_file(
+    bibentity: BibEntity,
+    bibdiv_dict: TBibDivDict,
+    output_basedir: str,
+    bib_df: pl.DataFrame,
+) -> BibEntityWithHTML:
+    """
+    Generate the HTML file for a publisher entity.
+    Creates a collapsible HTML structure grouped by year.
+    """
+    frame = "gen_publisher_html_file"
+    lginf(frame, f"Generating HTML file for publisher '{bibentity.entity_key}'...", lgr)
+
+    os.makedirs(output_basedir, exist_ok=True)
+    if not os.path.exists(output_basedir):
+        msg = f"The output directory '{output_basedir}' does not exist and could not be created. Exiting."
+        raise FileNotFoundError(msg)
+
+    publisher_structure = build_publisher_collapsible(bibentity.main_bibkeys, bib_df)
+    publisher_html = generate_publisher_struct_html(publisher_structure, bibdiv_dict)
+
+    publisher_html_filename = f"{output_basedir}/{bibentity.url_endpoint}.html"
+
+    with open(publisher_html_filename, "w") as f:
+        f.write(publisher_html)
+        f.write("\n")
+
+    if not os.path.exists(publisher_html_filename):
+        msg = f"The publisher HTML file '{publisher_html_filename}' was not generated for '{bibentity.entity_key}'. Exiting."
+        raise FileNotFoundError(msg)
+
+    lginf(
+        frame,
+        f"HTML file '{publisher_html_filename}' successfully generated for '{bibentity.entity_key}'",
+        lgr,
+    )
+
+    return BibEntityWithHTML(
+        id=bibentity.id,
+        entity_key=bibentity.entity_key,
+        url_endpoint=bibentity.url_endpoint,
+        main_bibkeys=bibentity.main_bibkeys,
+        further_references=bibentity.further_references,
+        depends_on=bibentity.depends_on,
+        html=RefHTML(
+            references_filename=publisher_html_filename,
+            further_references_filename="",
+        ),
+    )
+
+
 @try_except_wrapper(lgr)
 def gen_html_files(
     bibentity: BibEntity,
@@ -316,16 +415,16 @@ def gen_html_files(
     match entity_type:
 
         case "journal":
-            if not bib_df:
+            if bib_df is None:
                 raise ValueError("The bib_df parameter must be provided for journal entities.")
 
-            return gen_journal_html_file(bibentity, bibdiv_dict, output_basedir, bib_df, bibliography)
+            return gen_journal_html_file(bibentity, bibdiv_dict, output_basedir, bib_df)
 
         case "publisher":
-            if not bib_df:
-                raise ValueError("The bib_df parameter must be provided for journal entities.")
+            if bib_df is None:
+                raise ValueError("The bib_df parameter must be provided for publisher entities.")
 
-            raise NotImplementedError("Publisher HTML generation is not implemented yet.")
+            return gen_publisher_html_file(bibentity, bibdiv_dict, output_basedir, bib_df)
 
         case "article":
             return gen_basic_html_files(
@@ -335,6 +434,13 @@ def gen_html_files(
             )
 
         case "profile":
+            return gen_basic_html_files(
+                bibentity,
+                bibdiv_dict,
+                output_basedir,
+            )
+
+        case "page":
             return gen_basic_html_files(
                 bibentity,
                 bibdiv_dict,

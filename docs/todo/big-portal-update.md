@@ -153,47 +153,88 @@ Use `ref_pipe` to generate HTML files for each entity.
 - Docker container with dltc-env running
 - Environment configured in `src/ref_pipe/.env`
 
+### Supported Entity Types
+
+| Type | Output Format | HTML Structure |
+|------|---------------|----------------|
+| `journal` | Single file | Nested: year → volume → issue |
+| `publisher` | Single file | Nested: year only |
+| `profile` | Two files | Flat: references + further-references |
+| `page` | Two files | Flat: references + further-references |
+| `article` | Two files | Flat: references + further-references |
+
 ### Steps
 
-#### 3.1 For Articles
+#### 3.1 For Journals (~2k entities)
 ```bash
 PYTHONPATH='.' python src/ref_pipe/main_local.py \
-  -i data/entities/articles-with-bibkeys.csv \
-  -e utf-8 \
-  -t article \
-  -v src/ref_pipe/.env
-```
-
-**Output**:
-- `{url_endpoint}-references.html`
-- `{url_endpoint}-further-references.html`
-
-#### 3.2 For Profiles
-```bash
-PYTHONPATH='.' python src/ref_pipe/main_local.py \
-  -i data/entities/profiles-with-bibkeys.csv \
-  -e utf-8 \
-  -t profile \
-  -v src/ref_pipe/.env
-```
-
-**Output**: Same as articles (2 HTML files per profile)
-
-#### 3.3 For Journals
-```bash
-PYTHONPATH='.' python src/ref_pipe/main_local.py \
-  -i data/entities/journals-with-bibkeys.csv \
+  -i data/journals-with-bibkeys.csv \
   -e utf-8 \
   -t journal \
   -v src/ref_pipe/.env
 ```
 
-**Output**: Single collapsible HTML file per journal: `{url_endpoint}.html`
+**Required CSV columns**: `id`, `journal_key`, `_references_keys`, `_further_references_keys`, `_references_dependencies_keys`
 
-#### 3.4 For Other Entity Types
-- **Biblio Profiles**: Use `profile` type
-- **Pages**: Use `article` type
-- **Publications**: [TO BE DETERMINED - may need new entity type]
+**Output**: Single collapsible HTML file per journal: `{journal_key}.html`
+
+#### 3.2 For Publishers (~2k entities)
+```bash
+PYTHONPATH='.' python src/ref_pipe/main_local.py \
+  -i data/publishers-with-bibkeys.csv \
+  -e utf-8 \
+  -t publisher \
+  -v src/ref_pipe/.env
+```
+
+**Required CSV columns**: `id`, `publisher_key`, `_references_keys`, `_further_references_keys`, `_references_dependencies_keys`
+
+**Output**: Single collapsible HTML file per publisher: `{publisher_key}.html` (grouped by year)
+
+#### 3.3 For Profiles (~50k entities)
+```bash
+PYTHONPATH='.' python src/ref_pipe/main_local.py \
+  -i data/profiles-with-bibkeys.csv \
+  -e utf-8 \
+  -t profile \
+  -v src/ref_pipe/.env
+```
+
+**Required CSV columns**: `id`, `profile_name`, `login`, `biblio_keys`, `biblio_keys_further_references`, `biblio_dependencies_keys`
+
+**Output**: Two HTML files per profile:
+- `{login}-references.html`
+- `{login}-further-references.html`
+
+#### 3.4 For Pages (~10k entities)
+```bash
+PYTHONPATH='.' python src/ref_pipe/main_local.py \
+  -i data/pages-with-bibkeys.csv \
+  -e utf-8 \
+  -t page \
+  -v src/ref_pipe/.env
+```
+
+**Required CSV columns**: `id`, `slug`, `urlname`, `ref_bib_keys`, `_further_refs`, `_depends_on`
+
+**Output**: Two HTML files per page:
+- `{urlname}-references.html`
+- `{urlname}-further-references.html`
+
+#### 3.5 For Articles
+```bash
+PYTHONPATH='.' python src/ref_pipe/main_local.py \
+  -i data/articles-with-bibkeys.csv \
+  -e utf-8 \
+  -t article \
+  -v src/ref_pipe/.env
+```
+
+**Required CSV columns**: `id`, `_article_bib_key`, `urlname`, `ref_bib_keys`, `_further_refs`, `_depends_on`
+
+**Output**: Two HTML files per article:
+- `{urlname}-references.html`
+- `{urlname}-further-references.html`
 
 ---
 
@@ -277,18 +318,18 @@ Example: `data/ref_pipe/dwh-[date]/refpipe/`
 
 ## Status
 
-- [ ] Phase 1: Compute bibliography dependencies
-- [ ] Phase 2: Extract bibkeys for all entity types
-  - [ ] Journals
-  - [ ] Profiles
-  - [ ] Biblio Profiles
-  - [ ] Pages
-  - [ ] Publications
+- [x] Phase 1: Compute bibliography dependencies
+- [x] Phase 2: Extract bibkeys for all entity types
+  - [x] Journals (2,063 journals, 75,292 entries)
+  - [x] Publishers (2,005 publishers, 43,358 entries)
+  - [x] Profiles (7,395 profiles)
+  - [x] Pages (publishers) - via `pages_references_extractor.py`
+  - [ ] Pages (journals) - if needed
 - [ ] Phase 3: Generate HTML reference boxes
-  - [ ] Articles
-  - [ ] Profiles
-  - [ ] Journals
-  - [ ] Other entity types
+  - [ ] Journals (~2k)
+  - [ ] Publishers (~2k)
+  - [ ] Profiles (~50k)
+  - [ ] Pages (~10k)
 - [ ] Phase 4: Quality assurance
 
 ---

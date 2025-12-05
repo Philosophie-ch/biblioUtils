@@ -24,6 +24,10 @@ def extract_bibkeys(bibkeys_s: str) -> FrozenSet[str]:
     if bibkeys_s is None or bibkeys_s == "":
         return frozenset()
 
+    # Skip truncated cells from Google Sheets compatibility
+    if bibkeys_s.strip() == "[TOO LONG]":
+        return frozenset()
+
     return frozenset({remove_extra_whitespace(k) for k in bibkeys_s.split(",")})
 
 
@@ -60,6 +64,22 @@ EXTERNAL_COLUMN: Dict[TSupportedEntity, Dict[TBibEntityAttribute, str]] = {
         "id": "id",
         "entity_key": "journal_key",
         "url_endpoint": "journal_key",
+        "main_bibkeys": "_references_keys",
+        "further_references": "_further_references_keys",
+        "depends_on": "_references_dependencies_keys",
+    },
+    "publisher": {
+        "id": "id",
+        "entity_key": "publisher_key",
+        "url_endpoint": "publisher_key",
+        "main_bibkeys": "_references_keys",
+        "further_references": "_further_references_keys",
+        "depends_on": "_references_dependencies_keys",
+    },
+    "page": {
+        "id": "id",
+        "entity_key": "slug",
+        "url_endpoint": "urlname",
         "main_bibkeys": "ref_bib_keys",
         "further_references": "_further_refs",
         "depends_on": "_depends_on",

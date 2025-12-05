@@ -246,7 +246,7 @@ def tex2utf_external_postprocess(text: str) -> str:
 
 
 def preprocess_citet_commands(text: str, bib_df: pl.DataFrame | None) -> str:
-    """
+    r"""
     Replace \citet{bibkey} commands with "Author (Year)" format.
     Handles both single bibkeys and comma-separated lists.
 

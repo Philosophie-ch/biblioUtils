@@ -22,9 +22,9 @@ def load_bibliography_dataframe(
 
 def _preprocess_journal(bib_df: pl.DataFrame, raw_journal: BibEntity) -> BibEntity:
 
-    journal_df = bib_df.filter(bib_df['journal_key'] == raw_journal.entity_key)
+    journal_df = bib_df.filter(bib_df['journal-id'] == str(raw_journal.id))
 
-    main_bibkeys = frozenset(f"{bibkey}" for bibkey in journal_df["bibkeys"].to_list())
+    main_bibkeys = frozenset(f"{bibkey}" for bibkey in journal_df["bibkey"].to_list())
 
     return BibEntity(
         id=raw_journal.id,
@@ -34,6 +34,15 @@ def _preprocess_journal(bib_df: pl.DataFrame, raw_journal: BibEntity) -> BibEnti
         further_references=raw_journal.further_references,
         depends_on=raw_journal.depends_on,
     )
+
+
+def _preprocess_publisher(bib_df: pl.DataFrame, raw_publisher: BibEntity) -> BibEntity:
+    """
+    Preprocess a publisher entity. Unlike journals, publishers don't need
+    to extract bibkeys from the ODS - they already have them from the CSV.
+    This function is a pass-through that keeps the entity as-is.
+    """
+    return raw_publisher
 
 
 @try_except_wrapper(lgr)
@@ -49,14 +58,23 @@ def preprocess_bibentities(
     match entity_type:
         case "journal":
             df: pl.DataFrame | None = load_bibliography_dataframe(bibliography_file)
-            assert df
+            assert df is not None
             processed_bibentities = tuple(_preprocess_journal(df, raw_bibentity) for raw_bibentity in raw_bibentities)
+
+        case "publisher":
+            df = load_bibliography_dataframe(bibliography_file)
+            assert df is not None
+            processed_bibentities = tuple(_preprocess_publisher(df, raw_bibentity) for raw_bibentity in raw_bibentities)
 
         case "profile":
             df = None
             processed_bibentities = raw_bibentities
 
         case "article":
+            df = None
+            processed_bibentities = raw_bibentities
+
+        case "page":
             df = None
             processed_bibentities = raw_bibentities
 
@@ -72,7 +90,7 @@ def prepare_bib_df(
     bib_df: pl.DataFrame | None,
 ) -> pl.DataFrame | None:
 
-    if not bib_df:
+    if bib_df is None:
         return None
 
     # Remove duplicates on 'bibkey'
@@ -82,9 +100,11 @@ def prepare_bib_df(
             [
                 "bibkey",
                 "title",
-                "authors",
+                "author",
                 "journal",
-                "date" "volume",
+                "journal-id",
+                "date",
+                "volume",
                 "number",
                 "pages",
             ]

@@ -81,7 +81,7 @@ def parse_bibentry(base_bibentry: BaseBibEntry) -> ParsedBibEntry:
             further_note=base_bibentry.further_note,
             further_references_raw=[],
             depends_on_raw=crossrefs_parsed,  # At least include crossrefs
-            status="partial",
+            status="warning",
             error_message="\n\n".join(error_messages),
         )
 
