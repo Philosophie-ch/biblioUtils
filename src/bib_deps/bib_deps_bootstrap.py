@@ -49,18 +49,20 @@ def parse_bibentry(base_bibentry: BaseBibEntry) -> ParsedBibEntry:
     )
 
     for field in ["notes", "title"]:
-        if isinstance(getattr(citet_results, field), Err):
-            error_messages.append(f"Error parsing '{field}' field: {getattr(citet_results, field).message}")
+        result = getattr(citet_results, field)
+        if isinstance(result, Err):
+            error_messages.append(f"Error parsing '{field}' field: {result.message}")
         else:
-            further_references_raw += getattr(citet_results, field).out
+            further_references_raw += result.out
 
     depends_on_raw = list(further_references_raw)
 
     for field in ["further_note"]:
-        if isinstance(getattr(citet_results, field), Err):
-            error_messages.append(f"Error parsing '{field}' field: {getattr(citet_results, field).message}")
+        result = getattr(citet_results, field)
+        if isinstance(result, Err):
+            error_messages.append(f"Error parsing '{field}' field: {result.message}")
         else:
-            depends_on_raw += getattr(citet_results, field).out
+            depends_on_raw += result.out
 
     crossrefs_parsed = (
         [remove_extra_whitespace(cr) for cr in base_bibentry.crossref.split(",")] if base_bibentry.crossref else []
@@ -69,6 +71,8 @@ def parse_bibentry(base_bibentry: BaseBibEntry) -> ParsedBibEntry:
     depends_on_raw += crossrefs_parsed
 
     if error_messages != []:
+        # Log warning but continue with partial data (crossrefs at least)
+        lgr.warning(f"Errors parsing {base_bibentry.bibkey}: {'; '.join(error_messages[:2])}")
         return ParsedBibEntry(
             bibkey=base_bibentry.bibkey,
             title=base_bibentry.title,
@@ -76,8 +80,8 @@ def parse_bibentry(base_bibentry: BaseBibEntry) -> ParsedBibEntry:
             crossref=base_bibentry.crossref,
             further_note=base_bibentry.further_note,
             further_references_raw=[],
-            depends_on_raw=[],
-            status="error",
+            depends_on_raw=crossrefs_parsed,  # At least include crossrefs
+            status="partial",
             error_message="\n\n".join(error_messages),
         )
 
