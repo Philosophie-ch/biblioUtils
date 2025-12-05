@@ -57,7 +57,9 @@ def _load_bibliography_map_ods(bibliography_file_ods: str) -> TBibliographyMap:
     biblio_map = {
         f"{bibkey}": f"{publisher_id}"
         for bibkey, publisher_id in zip(df["bibkey"].to_list(), df["publisher-id"].to_list())
-        if publisher_id and f"{publisher_id}".strip() and f"{publisher_id}" != "None"  # Only include entries with publisher-id
+        if publisher_id
+        and f"{publisher_id}".strip()
+        and f"{publisher_id}" != "None"  # Only include entries with publisher-id
     }
 
     return biblio_map
@@ -87,9 +89,7 @@ def _load_closures_map_tsv(closures_file_tsv: str) -> TClosuresMap:
     return closures_map
 
 
-def load_bibliography_and_closures(
-    bibliography_file: str, closures_file: str
-) -> Tuple[TBibliographyMap, TClosuresMap]:
+def load_bibliography_and_closures(bibliography_file: str, closures_file: str) -> Tuple[TBibliographyMap, TClosuresMap]:
     """Load both bibliography mapping and precomputed closures."""
     frame = "load_bibliography_and_closures"
 
@@ -169,7 +169,7 @@ def _write_output_csv(
     result: Generator[TPublisherWithReferences, None, None],
     output_file: str,
     encoding: str,
-    original_publishers: list[dict],
+    original_publishers: list[Dict[str, str]],
 ) -> None:
     """Write output CSV preserving original column order, mapping to existing column names."""
     # Convert result to dict keyed by publisher_id

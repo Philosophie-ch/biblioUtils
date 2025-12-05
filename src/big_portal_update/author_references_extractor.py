@@ -94,9 +94,7 @@ def _load_closures_map_tsv(closures_file_tsv: str) -> TClosuresMap:
     return closures_map
 
 
-def load_bibliography_and_closures(
-    bibliography_file: str, closures_file: str
-) -> Tuple[TBibliographyMap, TClosuresMap]:
+def load_bibliography_and_closures(bibliography_file: str, closures_file: str) -> Tuple[TBibliographyMap, TClosuresMap]:
     """Load both bibliography mapping and precomputed closures."""
     frame = "load_bibliography_and_closures"
 
@@ -176,7 +174,7 @@ def _write_output_csv(
     result: Generator[TAuthorWithReferences, None, None],
     output_file: str,
     encoding: str,
-    original_authors: list[dict],
+    original_authors: list[Dict[str, str]],
 ) -> None:
     """Write output CSV preserving original column order, mapping to existing column names."""
     # Convert result to dict keyed by author_id

@@ -146,6 +146,10 @@ def cli_main_process_local() -> None:
 
     parser.add_argument("-v", "--env_file", type=str, help="Path to the environment file.", required=True)
 
+    parser.add_argument(
+        "-o", "--output-filename", type=str, help="Path to the output report file.", required=True
+    )
+
     args = parser.parse_args()
 
     curried_gen_report: Callable[[THTMLReport], Ok[None] | Err] = lambda out: generate_report_for_html_files(

@@ -52,8 +52,8 @@ class EnvVars(NamedTuple):
         return ", ".join(self.__annotations__.keys())
 
 
-SUPPORTED_ENTITY_TYPES = ("profile", "article", "journal")
-type TSupportedEntity = Literal["profile", "article", "journal"]
+SUPPORTED_ENTITY_TYPES = ("profile", "article", "journal", "publisher", "page")
+type TSupportedEntity = Literal["profile", "article", "journal", "publisher", "page"]
 
 type TBibEntityAttribute = Literal[
     "id",

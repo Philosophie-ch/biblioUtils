@@ -34,7 +34,7 @@ def truncate_long_cells(input_file: str, output_file: str, encoding: str) -> Non
             rows.append(new_row)
 
     with open(output_file, "w", newline="", encoding=encoding) as f_out:
-        writer = csv.DictWriter(f_out, fieldnames=fieldnames)
+        writer = csv.DictWriter(f_out, fieldnames=fieldnames or [])
         writer.writeheader()
         writer.writerows(rows)
 
