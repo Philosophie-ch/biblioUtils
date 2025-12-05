@@ -31,9 +31,13 @@ def load_bibentries_ods(filename: str) -> list[BaseBibEntry]:
 
     df = pl.read_ods(filename, has_header=True, drop_empty_rows=True)
 
-    required_columns = ['bibkey', 'title', 'note', 'crossref', 'further_note']
+    required_columns = ['bibkey', 'title', 'note', 'crossref']
     if missing_columns := [col for col in required_columns if col not in df.columns]:
         raise ValueError(f"Fatal error! Missing the following columns in the ODS file: {missing_columns}")
+
+    # further_note is optional - use empty string if not present
+    has_further_note = 'further_note' in df.columns
+    further_note_list = df['further_note'].to_list() if has_further_note else [''] * len(df)
 
     rows = [
         BaseBibEntry(
@@ -48,7 +52,7 @@ def load_bibentries_ods(filename: str) -> list[BaseBibEntry]:
             df['title'].to_list(),
             df['note'].to_list(),
             df['crossref'].to_list(),
-            df['further_note'].to_list(),
+            further_note_list,
         )
     ]
 
