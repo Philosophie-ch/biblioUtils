@@ -48,3 +48,12 @@ If you're using ssh into a Mac, Docker may complain about the keychain being loc
 security unlock-keychain
 # input your password
 ```
+
+## Changelog
+
+### 2025-12-17 (a6bab5f)
+Added entity-specific sorting for HTML output:
+- **profile**: year DESC (nulls first), title ASC
+- **publisher**: last name, first name, title (all ASC)
+- **journal**: start page ASC within issues
+- **default** (article, page): last name, first name, year DESC, title ASC
