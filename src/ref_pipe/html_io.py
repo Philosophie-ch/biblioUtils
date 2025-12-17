@@ -22,6 +22,93 @@ import polars as pl
 lgr = get_logger("Generate HTMLs")
 
 
+# =============================================================================
+# Sorting functions for entity-specific ordering
+# =============================================================================
+
+
+def _sort_for_profile(bibkeys: FrozenSet[str], bib_df: pl.DataFrame) -> tuple[str, ...]:
+    """
+    Sort bibkeys for profile entities.
+    Sort order: date DESC (nulls first), title ASC.
+    """
+    filtered = bib_df.filter(pl.col("bibkey").is_in(bibkeys))
+    if filtered.is_empty():
+        return tuple(bibkeys)
+
+    # Sort with nulls first for date (descending), title ascending
+    sorted_df = filtered.sort(
+        by=["date", "_sort_title"],
+        descending=[True, False],
+        nulls_last=[False, True],
+    )
+    return tuple(sorted_df["bibkey"].to_list())
+
+
+def _sort_for_publisher(bibkeys: FrozenSet[str], bib_df: pl.DataFrame) -> tuple[str, ...]:
+    """
+    Sort bibkeys for publisher entities.
+    Sort order: last_name ASC, first_name ASC, title ASC (no author = end).
+    """
+    filtered = bib_df.filter(pl.col("bibkey").is_in(bibkeys))
+    if filtered.is_empty():
+        return tuple(bibkeys)
+
+    sorted_df = filtered.sort(
+        by=["_sort_last_name", "_sort_first_name", "_sort_title"],
+        descending=[False, False, False],
+    )
+    return tuple(sorted_df["bibkey"].to_list())
+
+
+def _sort_for_default(bibkeys: FrozenSet[str], bib_df: pl.DataFrame) -> tuple[str, ...]:
+    """
+    Sort bibkeys for default entities (article, page, etc.).
+    Sort order: last_name ASC, first_name ASC, date DESC, title ASC (no author = end).
+    """
+    filtered = bib_df.filter(pl.col("bibkey").is_in(bibkeys))
+    if filtered.is_empty():
+        return tuple(bibkeys)
+
+    sorted_df = filtered.sort(
+        by=["_sort_last_name", "_sort_first_name", "date", "_sort_title"],
+        descending=[False, False, True, False],
+        nulls_last=[True, True, True, True],
+    )
+    return tuple(sorted_df["bibkey"].to_list())
+
+
+def sort_bibkeys_for_entity(
+    bibkeys: FrozenSet[str],
+    bib_df: pl.DataFrame | None,
+    entity_type: TSupportedEntity,
+) -> tuple[str, ...]:
+    """
+    Route to appropriate sorting based on entity type.
+    Returns a tuple of bibkeys in sorted order.
+    """
+    if bib_df is None:
+        return tuple(bibkeys)  # Fallback: no sorting
+
+    match entity_type:
+        case "profile":
+            return _sort_for_profile(bibkeys, bib_df)
+        case "publisher":
+            return _sort_for_publisher(bibkeys, bib_df)
+        case _:  # article, page, default
+            return _sort_for_default(bibkeys, bib_df)
+
+
+def get_bibdivs_ordered(bibdiv_dict: dict[str, str], bibkeys: tuple[str, ...]) -> Tuple[str, ...]:
+    """Get divs in the specified order (preserving tuple order)."""
+    return tuple(bibdiv_dict[k] for k in bibkeys if k in bibdiv_dict)
+
+
+# =============================================================================
+# Legacy function - kept for backward compatibility
+# =============================================================================
+
+
 def get_bibdivs(bibdiv_dict: dict[str, str], bibkeys: FrozenSet[str]) -> Tuple[str, ...]:
     return tuple(bibdiv_dict.get(bibkey, "") for bibkey in bibkeys if bibdiv_dict.get(bibkey, "") != "")
 
@@ -30,6 +117,8 @@ def gen_basic_html_files(
     bibentity: BibEntity,
     bibdiv_dict: TBibDivDict,
     output_basedir: str,
+    entity_type: TSupportedEntity,
+    bib_df: pl.DataFrame,
 ) -> BibEntityWithHTML:
 
     frame = f"gen_basic_html_files"
@@ -41,7 +130,9 @@ def gen_basic_html_files(
 
     # 1. Main references
     if main_bibkeys != frozenset():
-        main_bibkeys_divs = get_bibdivs(bibdiv_dict, main_bibkeys)
+        # Sort bibkeys according to entity type
+        sorted_main_bibkeys = sort_bibkeys_for_entity(main_bibkeys, bib_df, entity_type)
+        main_bibkeys_divs = get_bibdivs_ordered(bibdiv_dict, sorted_main_bibkeys)
         main_bibkeys_filename = f"{output_basedir}/{bibentity.url_endpoint}-references.html"
 
         with open(main_bibkeys_filename, "w") as f:
@@ -69,7 +160,9 @@ def gen_basic_html_files(
 
     # 2. Further references and dependencies
     if further_references != frozenset():
-        further_references_divs = get_bibdivs(bibdiv_dict, further_references)
+        # Sort further references using the same entity type sorting
+        sorted_further_refs = sort_bibkeys_for_entity(further_references, bib_df, entity_type)
+        further_references_divs = get_bibdivs_ordered(bibdiv_dict, sorted_further_refs)
         further_references_filename = f"{output_basedir}/{bibentity.url_endpoint}-further-references.html"
 
         with open(further_references_filename, "w") as f:
@@ -306,14 +399,22 @@ def build_publisher_collapsible(
 ) -> Tuple[HTMLYear, ...]:
     """
     Build a collapsible HTML structure for publishers, grouped by year only.
-    Simpler than journals - no volume/issue levels.
+    Within each year, entries are sorted by author (last name, first name, title).
     """
     # Filter the bibliography to only include the bibkeys for this publisher
     publisher_df = bib_df.filter(pl.col("bibkey").is_in(bibkeys))
 
+    # Sort the DataFrame by date (descending for year grouping order), then by author within each year
+    publisher_df = publisher_df.sort(
+        by=["date", "_sort_last_name", "_sort_first_name", "_sort_title"],
+        descending=[True, False, False, False],
+        nulls_last=[True, True, True, True],
+    )
+
     years = []
     for year_val, year_group in publisher_df.group_by("date", maintain_order=True):
         year_str = " ".join(map(str, year_val)) if year_val[0] is not None else "No date"
+        # Within each year group, entries are already sorted by author from the overall sort
         year_bibkeys = tuple(year_group["bibkey"].to_list())
         years.append(HTMLYear(name=year_str, contents=year_bibkeys))
 
@@ -405,7 +506,7 @@ def gen_html_files(
     bibdiv_dict: TBibDivDict,
     output_basedir: str,
     entity_type: TSupportedEntity,
-    bib_df: pl.DataFrame | None,
+    bib_df: pl.DataFrame,
     bibliography: Bibliography,
 ) -> BibEntityWithHTML:
 
@@ -415,15 +516,9 @@ def gen_html_files(
     match entity_type:
 
         case "journal":
-            if bib_df is None:
-                raise ValueError("The bib_df parameter must be provided for journal entities.")
-
             return gen_journal_html_file(bibentity, bibdiv_dict, output_basedir, bib_df)
 
         case "publisher":
-            if bib_df is None:
-                raise ValueError("The bib_df parameter must be provided for publisher entities.")
-
             return gen_publisher_html_file(bibentity, bibdiv_dict, output_basedir, bib_df)
 
         case "article":
@@ -431,6 +526,8 @@ def gen_html_files(
                 bibentity,
                 bibdiv_dict,
                 output_basedir,
+                entity_type,
+                bib_df,
             )
 
         case "profile":
@@ -438,6 +535,8 @@ def gen_html_files(
                 bibentity,
                 bibdiv_dict,
                 output_basedir,
+                entity_type,
+                bib_df,
             )
 
         case "page":
@@ -445,6 +544,8 @@ def gen_html_files(
                 bibentity,
                 bibdiv_dict,
                 output_basedir,
+                entity_type,
+                bib_df,
             )
 
         case _:
