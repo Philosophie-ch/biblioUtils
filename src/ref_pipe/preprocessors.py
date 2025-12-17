@@ -48,34 +48,29 @@ def _preprocess_publisher(bib_df: pl.DataFrame, raw_publisher: BibEntity) -> Bib
 @try_except_wrapper(lgr)
 def preprocess_bibentities(
     bibliography_file: str, raw_bibentities: Tuple[BibEntity, ...], entity_type: TSupportedEntity
-) -> Tuple[Tuple[BibEntity, ...], pl.DataFrame | None]:
+) -> Tuple[Tuple[BibEntity, ...], pl.DataFrame]:
     """
     Preprocess the raw bibentities to ensure they are in the correct format.
+    Always loads the bibliography DataFrame for sorting purposes.
     """
-    # Load the bibliography CSV file into a Polars DataFrame
+    # Load the bibliography ODS file into a Polars DataFrame (needed for all entity types for sorting)
+    df: pl.DataFrame = load_bibliography_dataframe(bibliography_file)
 
     # Preprocess the raw bibentities
     match entity_type:
         case "journal":
-            df: pl.DataFrame | None = load_bibliography_dataframe(bibliography_file)
-            assert df is not None
             processed_bibentities = tuple(_preprocess_journal(df, raw_bibentity) for raw_bibentity in raw_bibentities)
 
         case "publisher":
-            df = load_bibliography_dataframe(bibliography_file)
-            assert df is not None
             processed_bibentities = tuple(_preprocess_publisher(df, raw_bibentity) for raw_bibentity in raw_bibentities)
 
         case "profile":
-            df = None
             processed_bibentities = raw_bibentities
 
         case "article":
-            df = None
             processed_bibentities = raw_bibentities
 
         case "page":
-            df = None
             processed_bibentities = raw_bibentities
 
         case _:
@@ -87,12 +82,12 @@ def preprocess_bibentities(
 
 
 def prepare_bib_df(
-    bib_df: pl.DataFrame | None,
-) -> pl.DataFrame | None:
-
-    if bib_df is None:
-        return None
-
+    bib_df: pl.DataFrame,
+) -> pl.DataFrame:
+    """
+    Prepare the bibliography DataFrame for sorting operations.
+    Adds author parsing columns for sorting by last name and first name.
+    """
     # Remove duplicates on 'bibkey'
     df = (
         bib_df.unique(subset=["bibkey"], keep="first")
@@ -130,8 +125,41 @@ def prepare_bib_df(
                 pl.col('start').str.replace_all(r'[^0-9]', '').cast(pl.Int32, strict=False).alias('start_int'),
             ]
         )
+        # Add author parsing columns for sorting
+        .with_columns(
+            [
+                # Extract first author (before " and ")
+                pl.col('author')
+                .str.split(' and ')
+                .list.get(0, null_on_oob=True)
+                .alias('_first_author'),
+            ]
+        )
+        .with_columns(
+            [
+                # Extract last name (before comma) and first name (after comma)
+                pl.col('_first_author')
+                .str.split(',')
+                .list.get(0, null_on_oob=True)
+                .str.strip_chars()
+                .str.to_lowercase()
+                .fill_null('zzzzz')  # Sort entries without author to end
+                .alias('_sort_last_name'),
+                pl.col('_first_author')
+                .str.split(',')
+                .list.get(1, null_on_oob=True)
+                .str.strip_chars()
+                .str.to_lowercase()
+                .fill_null('zzzzz')  # Sort entries without first name to end
+                .alias('_sort_first_name'),
+                # Lowercase title for sorting
+                pl.col('title').str.to_lowercase().fill_null('zzzzz').alias('_sort_title'),
+            ]
+        )
+        .drop('_first_author')
     )
 
+    # Sort for journals/publishers (default sort: date DESC, volume DESC, number DESC, start_int ASC)
     sorted_df = (
         df.sort('start_int', nulls_last=True)
         .sort("number", descending=True)

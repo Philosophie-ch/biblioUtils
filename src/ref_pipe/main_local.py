@@ -30,7 +30,7 @@ def ref_pipe(
     relative_output_dir: str,
     container_name: str,
     entity_type: TSupportedEntity,
-    bib_df: pl.DataFrame | None,
+    bib_df: pl.DataFrame,
 ) -> BibEntityWithHTML:
 
     # 1. Prepare divs for the bibentity
@@ -146,9 +146,7 @@ def cli_main_process_local() -> None:
 
     parser.add_argument("-v", "--env_file", type=str, help="Path to the environment file.", required=True)
 
-    parser.add_argument(
-        "-o", "--output-filename", type=str, help="Path to the output report file.", required=True
-    )
+    parser.add_argument("-o", "--output-filename", type=str, help="Path to the output report file.", required=True)
 
     args = parser.parse_args()
 
