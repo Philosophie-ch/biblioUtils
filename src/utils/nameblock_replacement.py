@@ -107,7 +107,13 @@ def read_raw_nameblocks(input_file: str, column_name: str, encoding: str) -> Lis
         case ".ods":
             if not column_name:
                 raise ValueError("Column name must be specified for ODS files.")
-            df = pl.read_ods(input_file, has_header=True, drop_empty_rows=True, schema_overrides={column_name: pl.Utf8})
+            df = pl.read_ods(
+                input_file,
+                has_header=True,
+                drop_empty_rows=True,
+                schema_overrides={column_name: pl.Utf8},
+                infer_schema_length=0,  # Force all columns to be treated as strings
+            )
             excerpt = str(f"{df[column_name].drop_nulls().head(5)}")
             raw_nameblocks = [f"{row}" for row in df[column_name].to_list()]
 
