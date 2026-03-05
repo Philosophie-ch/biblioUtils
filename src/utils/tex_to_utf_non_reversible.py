@@ -384,7 +384,11 @@ def read_input_file(file: str, encoding: str | None, column: str | None) -> TRea
                 lines = text.splitlines()
 
         case (".ods", _, column) if (isinstance(column, str) and column != ""):
-            df = pl.read_ods(file, has_header=True)
+            df = pl.read_ods(
+                file,
+                has_header=True,
+                infer_schema_length=0  # Force all columns to be treated as strings
+            )
             lines = df[column].to_list()
 
         case _:
@@ -416,7 +420,7 @@ def load_bibliography(bib_path: str) -> pl.DataFrame:
         raise FileNotFoundError(f"Bibliography file not found: {bib_path}")
 
     lginf("load_bibliography", f"Loading bibliography from '{bib_path}'", lgr)
-    df = pl.read_ods(bib_path, has_header=True)
+    df = pl.read_ods(bib_path, has_header=True, infer_schema_length=0)  # Force all columns to be treated as strings
 
     # Check required columns
     required_cols = ["bibkey", "author", "date"]
