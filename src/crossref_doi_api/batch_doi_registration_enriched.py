@@ -31,6 +31,7 @@ from dotenv import load_dotenv
 # Import the original batch registration
 from src.crossref_doi_api.batch_doi_registration import BatchDOIRegistration
 from src.crossref_doi_api.bibliography_enrichment import (
+    AlexandriaEnricher,
     BibliographyEnricher,
     enrich_csv_with_bibliography,
     BIBKEY_COLUMN_NAME,
@@ -55,44 +56,31 @@ class EnrichedBatchDOIRegistration(BatchDOIRegistration):
         bibliography_path: Optional[str] = None,
         enable_enrichment: bool = True,
         csv_encoding: Optional[str] = None,
+        use_alexandria: bool = False,
+        alexandria_url: Optional[str] = None,
+        alexandria_key: Optional[str] = None,
     ):
-        """
-        Initialize enriched batch DOI registration.
-
-        Parameters
-        ----------
-        username : str
-            Crossref production username
-        password : str
-            Crossref production password
-        sandbox_username : str, optional
-            Crossref sandbox username (if different)
-        sandbox_password : str, optional
-            Crossref sandbox password (if different)
-        depositor_name : str
-            Organization name for XML metadata
-        depositor_email : str
-            Contact email for XML metadata
-        bibliography_path : str, optional
-            Path to bibliography ODS file (uses BIBLIOGRAPHY_ODS_PATH env var if not provided)
-        enable_enrichment : bool
-            Enable bibliography enrichment (default: True)
-        csv_encoding : str, optional
-            CSV file encoding (default: auto-detect using chardet)
-        """
         super().__init__(username, password, sandbox_username, sandbox_password, depositor_name, depositor_email)
 
         self.enable_enrichment = enable_enrichment
         self.csv_encoding = csv_encoding
-        self.enricher = None
+        self.enricher: Optional[Union[AlexandriaEnricher, BibliographyEnricher]] = None
 
         if enable_enrichment:
-            try:
-                self.enricher = BibliographyEnricher(bibliography_path)
-                print(f"✅ Bibliography enrichment enabled")
-            except Exception as e:
-                print(f"⚠️  Bibliography enrichment disabled: {e}")
-                self.enable_enrichment = False
+            if use_alexandria:
+                try:
+                    self.enricher = AlexandriaEnricher(api_url=alexandria_url, api_key=alexandria_key)
+                    print(f"✅ Alexandria enrichment enabled")
+                except Exception as e:
+                    print(f"❌ Alexandria enrichment failed: {e}")
+                    self.enable_enrichment = False
+            else:
+                try:
+                    self.enricher = BibliographyEnricher(bibliography_path)
+                    print(f"✅ Bibliography ODS enrichment enabled")
+                except Exception as e:
+                    print(f"⚠️  Bibliography enrichment disabled: {e}")
+                    self.enable_enrichment = False
 
     def _create_enriched_csv(self, input_csv: Union[str, Path], bibkey_column: Optional[str] = None) -> Path:
         """
@@ -147,11 +135,7 @@ class EnrichedBatchDOIRegistration(BatchDOIRegistration):
             )
 
         # Validate all bibkeys exist in the bibliography before proceeding
-        all_bibkeys = [
-            str(row.get(bibkey_column))
-            for row in input_df.iter_rows(named=True)
-            if row.get(bibkey_column)
-        ]
+        all_bibkeys = [str(row.get(bibkey_column)) for row in input_df.iter_rows(named=True) if row.get(bibkey_column)]
         missing_bibkeys = [bk for bk in all_bibkeys if self.enricher.lookup_bibkey(bk) is None]
 
         if missing_bibkeys:
@@ -388,6 +372,11 @@ Environment variables required:
     parser.add_argument("--bibliography", type=str, help="Bibliography ODS path (overrides env var)")
     parser.add_argument("--encoding", type=str, help="CSV file encoding (default: auto-detect)")
     parser.add_argument("--bulk", action="store_true", help="Submit all DOIs in a single XML (recommended)")
+    parser.add_argument(
+        "--alexandria", action="store_true", help="Use Alexandria Nexus API for enrichment instead of ODS file"
+    )
+    parser.add_argument("--alexandria-url", type=str, help="Alexandria API URL (overrides ALEXANDRIA_API_URL env var)")
+    parser.add_argument("--alexandria-key", type=str, help="Alexandria API key (overrides ALEXANDRIA_API_KEY env var)")
 
     args = parser.parse_args()
 
@@ -412,6 +401,9 @@ Environment variables required:
             bibliography_path=args.bibliography,
             enable_enrichment=not args.no_enrichment,
             csv_encoding=args.encoding,
+            use_alexandria=args.alexandria,
+            alexandria_url=args.alexandria_url,
+            alexandria_key=args.alexandria_key,
         )
     except Exception as e:
         print(f"❌ Initialization error: {e}")

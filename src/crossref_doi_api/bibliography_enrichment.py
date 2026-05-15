@@ -358,7 +358,9 @@ class BibliographyEnricher:
                 enriched["contributor_role"] = "editor"
 
         if not parsed_authors:
-            raise ValueError(f"Bibkey '{bibkey}': no author data found from assigned_authors, bibliography author, or editor fields")
+            raise ValueError(
+                f"Bibkey '{bibkey}': no author data found from assigned_authors, bibliography author, or editor fields"
+            )
 
         enriched["author_given_name"] = parsed_authors[0]["given_name"]
         enriched["author_surname"] = parsed_authors[0]["surname"]
@@ -423,20 +425,6 @@ class BibliographyEnricher:
         if bib_row.get("type"):
             enriched["degree"] = str(bib_row["type"])
 
-        # Language — map babel names to ISO 639-1 codes for Crossref
-        _BABEL_TO_ISO = {
-            "english": "en", "american": "en", "british": "en", "UKenglish": "en", "USenglish": "en",
-            "french": "fr", "francais": "fr",
-            "ngerman": "de", "german": "de", "austrian": "de", "naustrian": "de", "nswissgerman": "de", "swissgerman": "de",
-            "italian": "it",
-            "spanish": "es",
-            "portuguese": "pt", "brazilian": "pt",
-            "dutch": "nl",
-            "latin": "la",
-            "greek": "el", "polutonikogreek": "el",
-            "russian": "ru",
-            "catalan": "ca",
-        }
         langid = bib_row.get("_langid")
         if langid and str(langid) not in ("None", ""):
             iso_code = _BABEL_TO_ISO.get(str(langid), str(langid))
@@ -454,6 +442,188 @@ class BibliographyEnricher:
 
         if bib_row.get("_guesteditor"):
             enriched["guest_editor"] = str(bib_row["_guesteditor"])
+
+        return enriched
+
+
+_BABEL_TO_ISO = {
+    "english": "en",
+    "american": "en",
+    "british": "en",
+    "UKenglish": "en",
+    "USenglish": "en",
+    "french": "fr",
+    "francais": "fr",
+    "ngerman": "de",
+    "german": "de",
+    "austrian": "de",
+    "naustrian": "de",
+    "nswissgerman": "de",
+    "swissgerman": "de",
+    "italian": "it",
+    "spanish": "es",
+    "portuguese": "pt",
+    "brazilian": "pt",
+    "dutch": "nl",
+    "latin": "la",
+    "greek": "el",
+    "polutonikogreek": "el",
+    "russian": "ru",
+    "catalan": "ca",
+}
+
+
+class AlexandriaEnricher:
+    """Enrich metadata via the Alexandria Nexus REST API instead of ODS file."""
+
+    def __init__(self, api_url: Optional[str] = None, api_key: Optional[str] = None):
+        load_dotenv()
+        self.api_url = (api_url or os.getenv("ALEXANDRIA_API_URL") or "").rstrip("/")
+        self.api_key = api_key or os.getenv("ALEXANDRIA_API_KEY", "")
+
+        if not self.api_url:
+            raise ValueError("Alexandria API URL not provided. Set ALEXANDRIA_API_URL or pass api_url.")
+        if not self.api_key:
+            raise ValueError("Alexandria API key not provided. Set ALEXANDRIA_API_KEY or pass api_key.")
+
+        self._journal_cache: Dict[str, Dict[str, Any]] = {}
+        print(f"📚 Using Alexandria Nexus at: {self.api_url}")
+
+    def _headers(self) -> Dict[str, str]:
+        return {"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"}
+
+    def _get(self, path: str) -> Any:
+        import requests
+
+        resp = requests.get(f"{self.api_url}{path}", headers=self._headers(), timeout=30)
+        if resp.status_code == 404:
+            return None
+        resp.raise_for_status()
+        return resp.json()
+
+    def lookup_bibkey(self, bibkey: str) -> Optional[Dict[str, Any]]:
+        result: Optional[Dict[str, Any]] = self._get(f"/api/v1/bibitems/by-key/{bibkey}")
+        return result
+
+    def _fetch_authors(self, bibitem_id: int) -> List[Dict[str, str]]:
+        junctions = self._get(f"/api/v1/bibitems/{bibitem_id}/authors")
+        if not junctions:
+            return []
+        if not isinstance(junctions, list):
+            junctions = junctions.get("items", junctions.get("data", []))
+
+        authors: List[Dict[str, str]] = []
+        for j in junctions:
+            author_key = j.get("author_key")
+            if not author_key:
+                continue
+            a = self._get(f"/api/v1/authors/by-key/{author_key}")
+            if not a:
+                continue
+            given = str(a.get("given_name_unicode") or a.get("given_name") or "")
+            family = str(a.get("family_name_unicode") or a.get("family_name") or "")
+            if given or family:
+                authors.append({"given_name": given, "surname": family})
+        return authors
+
+    def _fetch_journal(self, journal_key: str) -> Optional[Dict[str, Any]]:
+        if journal_key in self._journal_cache:
+            return self._journal_cache[journal_key]
+        journal: Optional[Dict[str, Any]] = self._get(f"/api/v1/journals/by-key/{journal_key}")
+        if journal:
+            self._journal_cache[journal_key] = journal
+        return journal
+
+    def enrich_metadata(self, bibkey: str, base_metadata: Optional[Dict[str, Any]] = None) -> Optional[Dict[str, Any]]:
+        bibitem = self.lookup_bibkey(bibkey)
+        if bibitem is None:
+            print(f"❌ Bibkey '{bibkey}' not found in Alexandria")
+            return None
+
+        enriched = base_metadata.copy() if base_metadata else {}
+        enriched["bibkey"] = bibkey
+
+        # Title
+        title = bibitem.get("title_unicode") or bibitem.get("title")
+        if title:
+            enriched["title"] = str(title)
+
+        # Year
+        raw_year = bibitem.get("date_year")
+        if raw_year:
+            enriched["_year"] = int(raw_year)
+
+        # Authors from Alexandria API
+        bibitem_id = bibitem.get("id")
+        if bibitem_id:
+            parsed_authors = self._fetch_authors(int(bibitem_id))
+        else:
+            parsed_authors = []
+
+        if not parsed_authors:
+            raise ValueError(f"Bibkey '{bibkey}': no authors found in Alexandria")
+
+        enriched["author_given_name"] = parsed_authors[0]["given_name"]
+        enriched["author_surname"] = parsed_authors[0]["surname"]
+        if len(parsed_authors) > 1:
+            enriched["additional_authors"] = [
+                {"given_name": a["given_name"], "surname": a["surname"]} for a in parsed_authors[1:]
+            ]
+
+        # Journal metadata from journal_key
+        journal_key = bibitem.get("journal_key")
+        if journal_key:
+            journal = self._fetch_journal(str(journal_key))
+            if journal:
+                journal_name = journal.get("name_unicode") or journal.get("name_latex")
+                if journal_name:
+                    enriched["journal_title"] = str(journal_name)
+                issn = journal.get("issn_electronic") or journal.get("issn_print")
+                if issn:
+                    enriched["journal_issn"] = str(issn)
+
+        if bibitem.get("volume"):
+            enriched["volume"] = str(bibitem["volume"])
+        if bibitem.get("number"):
+            enriched["issue"] = str(bibitem["number"])
+
+        # Pages
+        pages = bibitem.get("pages")
+        if pages:
+            pages_str = str(pages)
+            sep = "--" if "--" in pages_str else "-"
+            parts = pages_str.split(sep, 1)
+            if len(parts) == 2:
+                enriched["first_page"] = parts[0].strip()
+                enriched["last_page"] = parts[1].strip()
+            else:
+                enriched["first_page"] = pages_str.strip()
+                enriched["last_page"] = pages_str.strip()
+
+        if bibitem.get("url"):
+            enriched["url"] = str(bibitem["url"])
+        if bibitem.get("doi"):
+            enriched["existing_doi"] = str(bibitem["doi"])
+        if bibitem.get("publisher"):
+            enriched["publisher"] = str(bibitem["publisher"])
+        if bibitem.get("address"):
+            enriched["publisher_place"] = str(bibitem["address"])
+        if bibitem.get("booktitle"):
+            enriched["booktitle"] = str(bibitem["booktitle"])
+        if bibitem.get("series"):
+            enriched["series_title"] = str(bibitem["series"])
+        if bibitem.get("edition"):
+            enriched["edition"] = str(bibitem["edition"])
+
+        # Language
+        langid = bibitem.get("langid")
+        if langid and str(langid) not in ("None", ""):
+            enriched["language"] = _BABEL_TO_ISO.get(str(langid), str(langid))
+        elif "language" not in enriched:
+            enriched["language"] = "en"
+
+        if bibitem.get("entry_type"):
+            enriched["entry_type"] = str(bibitem["entry_type"])
 
         return enriched
 
