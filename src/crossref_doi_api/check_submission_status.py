@@ -55,9 +55,12 @@ def check_submission_status(
         base_url = "https://doi.crossref.org"
 
     # Crossref admin API endpoint for submission status
+    # Crossref tracks submissions by the multipart upload filename, not doi_batch_id.
+    # The filename used during upload is typically "{batch_id}.xml".
     url = f"{base_url}/servlet/submissionDownload"
 
-    params = {"usr": username, "pwd": password, "doi_batch_id": batch_id, "type": "result"}
+    file_name = batch_id if batch_id.endswith(".xml") else f"{batch_id}.xml"
+    params = {"usr": username, "pwd": password, "file_name": file_name, "type": "result"}
 
     try:
         print(f"🔍 Querying submission status for batch: {batch_id}")

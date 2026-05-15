@@ -146,6 +146,24 @@ class EnrichedBatchDOIRegistration(BatchDOIRegistration):
                 f"CSV must contain bibkey column '{bibkey_column}'. " f"Available columns: {list(input_df.columns)}"
             )
 
+        # Validate all bibkeys exist in the bibliography before proceeding
+        all_bibkeys = [
+            str(row.get(bibkey_column))
+            for row in input_df.iter_rows(named=True)
+            if row.get(bibkey_column)
+        ]
+        missing_bibkeys = [bk for bk in all_bibkeys if self.enricher.lookup_bibkey(bk) is None]
+
+        if missing_bibkeys:
+            print(f"\n❌ {len(missing_bibkeys)} bibkey(s) not found in the bibliography:")
+            for bk in missing_bibkeys:
+                print(f"   - {bk}")
+            raise ValueError(
+                f"Aborting: {len(missing_bibkeys)} bibkey(s) from the input CSV "
+                f"are not present in the bibliography. Fix the input or the bibliography first."
+            )
+        print(f"   ✅ All {len(all_bibkeys)} bibkeys validated against bibliography")
+
         # Enrich each row
         enriched_rows = []
         total = len(input_df)
@@ -157,7 +175,7 @@ class EnrichedBatchDOIRegistration(BatchDOIRegistration):
                 print(f"   ⚠️  Row {idx + 1}: No bibkey, skipping")
                 continue
 
-            # Get DOI and link from input row if present
+            # Get DOI, link, and assigned_authors from input row if present
             base_metadata = {}
             if "doi" in row and row["doi"]:
                 base_metadata["doi"] = str(row["doi"])
@@ -165,6 +183,12 @@ class EnrichedBatchDOIRegistration(BatchDOIRegistration):
                 base_metadata["link"] = str(row["link"])
             if "url" in row and row["url"]:
                 base_metadata["link"] = str(row["url"])
+            if "assigned_authors" in row and row["assigned_authors"]:
+                base_metadata["assigned_authors"] = str(row["assigned_authors"])
+            if "journal_issn" in row and row["journal_issn"]:
+                base_metadata["journal_issn"] = str(row["journal_issn"])
+            if "language" in row and row["language"]:
+                base_metadata["language"] = str(row["language"])
 
             # Enrich with bibliography data
             enriched = self.enricher.enrich_metadata(bibkey, base_metadata=base_metadata)
@@ -184,9 +208,9 @@ class EnrichedBatchDOIRegistration(BatchDOIRegistration):
         # Create temporary CSV file with enriched data
         temp_csv = Path(tempfile.mktemp(suffix=".csv", prefix="enriched_"))
 
-        # Get fieldnames from first row
+        # Collect fieldnames from ALL rows so late-appearing keys aren't missed
         if enriched_rows:
-            fieldnames = list(enriched_rows[0].keys())
+            fieldnames = list(dict.fromkeys(k for row in enriched_rows for k in row))
 
             with open(temp_csv, 'w', encoding='utf-8', newline='') as f:
                 writer = csv.DictWriter(f, fieldnames=fieldnames)
@@ -228,8 +252,8 @@ class EnrichedBatchDOIRegistration(BatchDOIRegistration):
         if "journal_title" in enriched:
             csv_row["journal_title"] = str(enriched["journal_title"])
 
-        # Use default ISSN if not provided
-        csv_row["journal_issn"] = str(enriched.get("journal_issn", "1234-5678"))
+        if "journal_issn" in enriched:
+            csv_row["journal_issn"] = str(enriched["journal_issn"])
 
         if "volume" in enriched:
             csv_row["volume"] = str(enriched["volume"])
@@ -245,8 +269,6 @@ class EnrichedBatchDOIRegistration(BatchDOIRegistration):
 
         if "language" in enriched:
             csv_row["language"] = str(enriched["language"])
-        else:
-            csv_row["language"] = "en"  # Default to English
 
         # Additional authors as JSON string
         if "additional_authors" in enriched:
@@ -365,6 +387,7 @@ Environment variables required:
     parser.add_argument("--no-enrichment", action="store_true", help="Disable bibliography enrichment")
     parser.add_argument("--bibliography", type=str, help="Bibliography ODS path (overrides env var)")
     parser.add_argument("--encoding", type=str, help="CSV file encoding (default: auto-detect)")
+    parser.add_argument("--bulk", action="store_true", help="Submit all DOIs in a single XML (recommended)")
 
     args = parser.parse_args()
 
@@ -404,16 +427,34 @@ Environment variables required:
             print("Registration cancelled.")
             sys.exit(0)
 
-    # Run batch registration
+    # Run registration
     try:
-        results = batch.register_batch(
-            csv_file=args.csv_file,
-            use_sandbox=use_sandbox,
-            check_conflicts=not args.no_conflict_check,
-            delay_between_submissions=args.delay,
-            max_retries=args.retries,
-            dry_run=args.dry_run,
-        )
+        if args.bulk:
+            # Bulk mode: enrich first, then submit as single XML
+            if batch.enable_enrichment:
+                enriched_csv = batch._create_enriched_csv(args.csv_file)
+            else:
+                enriched_csv = Path(args.csv_file)
+            results = batch.register_bulk(
+                csv_file=enriched_csv,
+                use_sandbox=use_sandbox,
+                dry_run=args.dry_run,
+                max_retries=args.retries,
+            )
+            if enriched_csv != Path(args.csv_file):
+                try:
+                    enriched_csv.unlink()
+                except Exception:
+                    pass
+        else:
+            results = batch.register_batch(
+                csv_file=args.csv_file,
+                use_sandbox=use_sandbox,
+                check_conflicts=not args.no_conflict_check,
+                delay_between_submissions=args.delay,
+                max_retries=args.retries,
+                dry_run=args.dry_run,
+            )
 
         # Print summary
         print("\n" + "=" * 60)

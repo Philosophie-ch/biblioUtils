@@ -66,7 +66,7 @@ class BibliographyEnricher:
             raise FileNotFoundError(f"Bibliography file not found: {self.bibliography_path}")
 
         print(f"📚 Loading bibliography from: {self.bibliography_path}")
-        self.df = pl.read_ods(str(self.bibliography_path), has_header=True, drop_empty_rows=True)
+        self.df = pl.read_ods(str(self.bibliography_path), has_header=True, drop_empty_rows=True, infer_schema_length=0)
         print(f"   Loaded {len(self.df)} entries")
 
         # Check for bibkey column
@@ -345,43 +345,27 @@ class BibliographyEnricher:
 
         # Authors - prefer assigned_authors from base_metadata (CSV), then fall back to bibliography
         assigned_authors = enriched.get("assigned_authors", "")
+        parsed_authors: List[Dict[str, str]] = []
         if assigned_authors and self.authors_df is not None:
-            # Look up authors from CSV using assigned_authors keys
             parsed_authors = self.lookup_authors_from_keys(str(assigned_authors))
-            if parsed_authors:
-                # Set primary author
-                enriched["author_given_name"] = parsed_authors[0]["given_name"]
-                enriched["author_surname"] = parsed_authors[0]["surname"]
 
-                # Add additional authors if present
-                if len(parsed_authors) > 1:
-                    enriched["additional_authors"] = [
-                        {"given_name": a["given_name"], "surname": a["surname"]} for a in parsed_authors[1:]
-                    ]
-        else:
-            # Fallback: parse author string from bibliography
+        if not parsed_authors:
             author_string = bib_row.get("author", "")
             if author_string:
                 parsed_authors = self.parse_authors(str(author_string))
-                if parsed_authors:
-                    # Set primary author
-                    enriched["author_given_name"] = parsed_authors[0]["given_name"]
-                    enriched["author_surname"] = parsed_authors[0]["surname"]
+            elif bib_row.get("editor"):
+                parsed_authors = self.parse_authors(str(bib_row["editor"]))
+                enriched["contributor_role"] = "editor"
 
-                    # Add additional authors if present
-                    if len(parsed_authors) > 1:
-                        enriched["additional_authors"] = [
-                            {"given_name": a["given_name"], "surname": a["surname"]} for a in parsed_authors[1:]
-                        ]
+        if not parsed_authors:
+            raise ValueError(f"Bibkey '{bibkey}': no author data found from assigned_authors, bibliography author, or editor fields")
 
-            # If no author, try editor
-            if not author_string and bib_row.get("editor"):
-                editor_string = str(bib_row["editor"])
-                parsed_editors = self.parse_authors(editor_string)
-                if parsed_editors:
-                    enriched["author_given_name"] = parsed_editors[0]["given_name"]
-                    enriched["author_surname"] = parsed_editors[0]["surname"]
-                    enriched["contributor_role"] = "editor"
+        enriched["author_given_name"] = parsed_authors[0]["given_name"]
+        enriched["author_surname"] = parsed_authors[0]["surname"]
+        if len(parsed_authors) > 1:
+            enriched["additional_authors"] = [
+                {"given_name": a["given_name"], "surname": a["surname"]} for a in parsed_authors[1:]
+            ]
 
         # Journal metadata
         if bib_row.get("journal"):
@@ -439,9 +423,26 @@ class BibliographyEnricher:
         if bib_row.get("type"):
             enriched["degree"] = str(bib_row["type"])
 
-        # Language
-        if bib_row.get("_langid"):
-            enriched["language"] = str(bib_row["_langid"])
+        # Language — map babel names to ISO 639-1 codes for Crossref
+        _BABEL_TO_ISO = {
+            "english": "en", "american": "en", "british": "en", "UKenglish": "en", "USenglish": "en",
+            "french": "fr", "francais": "fr",
+            "ngerman": "de", "german": "de", "austrian": "de", "naustrian": "de", "nswissgerman": "de", "swissgerman": "de",
+            "italian": "it",
+            "spanish": "es",
+            "portuguese": "pt", "brazilian": "pt",
+            "dutch": "nl",
+            "latin": "la",
+            "greek": "el", "polutonikogreek": "el",
+            "russian": "ru",
+            "catalan": "ca",
+        }
+        langid = bib_row.get("_langid")
+        if langid and str(langid) not in ("None", ""):
+            iso_code = _BABEL_TO_ISO.get(str(langid), str(langid))
+            enriched["language"] = iso_code
+        elif "language" not in enriched:
+            enriched["language"] = "en"
 
         # Entry type
         if bib_row.get("entry_type"):

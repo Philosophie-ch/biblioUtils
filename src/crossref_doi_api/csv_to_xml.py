@@ -17,15 +17,15 @@ Required Headers:
 
 Optional Headers:
 - subtitle: Article subtitle
-- journal_title: Journal name (defaults to "Philosophie.ch Publications")
-- journal_issn: Journal ISSN (defaults to "1234-5678")
+- journal_title: Journal name
+- journal_issn: Journal ISSN
 - volume: Journal volume number
 - issue: Journal issue number
 - first_page: Starting page number
 - last_page: Ending page number
 - publication_month: Month of publication (1-12)
 - publication_day: Day of publication (1-31)
-- language: Publication language (ISO 639-1 code, defaults to "en")
+- language: Publication language (ISO 639-1 code)
 - abstract: Article abstract/summary
 - keywords: Comma-separated keywords
 - additional_authors: JSON array of additional authors with given_name and surname
@@ -175,14 +175,16 @@ class CSVToXMLConverter:
         str
             Generated XML content
         """
-        # Set defaults
-        defaults = {'journal_title': 'Philosophie.ch Publications', 'journal_issn': '1234-5678', 'language': 'en'}
+        data = {k: v.strip() for k, v in row_data.items() if v.strip()}
 
-        # Merge row data with defaults
-        data = {**defaults, **{k: v.strip() for k, v in row_data.items() if v.strip()}}
+        missing = [f for f in ('journal_title', 'journal_issn', 'language') if f not in data]
+        if missing:
+            doi = data.get('doi', '?')
+            raise ValueError(f"DOI {doi}: missing required fields: {', '.join(missing)}")
 
         # Generate timestamp
-        timestamp = datetime.now().strftime('%Y%m%d%H%M%S%f')
+        now = datetime.now()
+        timestamp = now.strftime('%Y%m%d%H%M%S') + f"{now.microsecond // 1000:03d}"
 
         # Parse additional authors
         additional_authors = []
@@ -342,8 +344,7 @@ class CSVToXMLConverter:
         if not csv_path.exists():
             raise FileNotFoundError(f"CSV file not found: {csv_file}")
 
-        # Generate batch ID once for all DOIs
-        batch_id = f"philosophie-batch-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
+        batch_prefix = f"philosophie-batch-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
 
         with open(csv_path, 'r', encoding='utf-8') as f:
             reader = csv.DictReader(f)
@@ -360,6 +361,9 @@ class CSVToXMLConverter:
                 if row_errors:
                     raise ValueError(f"Row {row_num} validation failed: {'; '.join(row_errors)}")
 
+                # Each submission needs a unique batch ID for Crossref tracking
+                batch_id = f"{batch_prefix}-{row_num:04d}"
+
                 # Generate XML content
                 xml_content = self.generate_xml(row, batch_id)
 
@@ -369,9 +373,168 @@ class CSVToXMLConverter:
                     'title': str(row.get('title', '')).strip(),
                     'row_number': str(row_num),
                     'batch_id': str(batch_id),
+                    'batch_prefix': str(batch_prefix),
                 }
 
                 yield xml_content, metadata
+
+    def _generate_article_fragment(self, data: Dict[str, str], additional_authors: List[Dict[str, str]]) -> List[str]:
+        """Generate XML lines for a single journal_article element."""
+        lines = [
+            '      <journal_article publication_type="full_text">',
+            '        <titles>',
+            f'          <title>{self._escape_xml(data["title"])}</title>',
+        ]
+
+        if 'subtitle' in data:
+            lines.append(f'          <subtitle>{self._escape_xml(data["subtitle"])}</subtitle>')
+
+        lines.append('        </titles>')
+
+        lines.append('        <contributors>')
+        lines.extend([
+            '          <person_name sequence="first" contributor_role="author">',
+            f'            <given_name>{self._escape_xml(data["author_given_name"])}</given_name>',
+            f'            <surname>{self._escape_xml(data["author_surname"])}</surname>',
+            '          </person_name>',
+        ])
+        for author in additional_authors:
+            lines.extend([
+                '          <person_name sequence="additional" contributor_role="author">',
+                f'            <given_name>{self._escape_xml(author["given_name"])}</given_name>',
+                f'            <surname>{self._escape_xml(author["surname"])}</surname>',
+                '          </person_name>',
+            ])
+        lines.append('        </contributors>')
+
+        lines.extend(['        <publication_date media_type="online">', f'          <year>{data["_year"]}</year>'])
+        if 'publication_month' in data:
+            lines.append(f'          <month>{data["publication_month"]}</month>')
+        if 'publication_day' in data:
+            lines.append(f'          <day>{data["publication_day"]}</day>')
+        lines.append('        </publication_date>')
+
+        if 'first_page' in data or 'last_page' in data:
+            lines.append('        <pages>')
+            if 'first_page' in data:
+                lines.append(f'          <first_page>{data["first_page"]}</first_page>')
+            if 'last_page' in data:
+                lines.append(f'          <last_page>{data["last_page"]}</last_page>')
+            lines.append('        </pages>')
+
+        lines.extend([
+            '        <doi_data>',
+            f'          <doi>{data["doi"]}</doi>',
+            f'          <resource>{data["link"]}</resource>',
+            '        </doi_data>',
+            '      </journal_article>',
+        ])
+
+        return lines
+
+    def generate_bulk_xml_from_csv(self, csv_file: Union[str, Path]) -> Tuple[str, Dict[str, Any]]:
+        """
+        Generate a single XML file containing all articles from the CSV.
+
+        All articles must share the same journal_title, journal_issn, and language.
+
+        Returns
+        -------
+        Tuple[str, Dict[str, Any]]
+            (xml_content, metadata) where metadata includes batch_id and DOI list
+        """
+        csv_path = Path(csv_file)
+        if not csv_path.exists():
+            raise FileNotFoundError(f"CSV file not found: {csv_file}")
+
+        batch_id = f"philosophie-batch-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
+        now = datetime.now()
+        timestamp = now.strftime('%Y%m%d%H%M%S') + f"{now.microsecond // 1000:03d}"
+
+        with open(csv_path, 'r', encoding='utf-8') as f:
+            reader = csv.DictReader(f)
+
+            missing_headers = self.required_fields - set(reader.fieldnames or [])
+            if missing_headers:
+                raise ValueError(f"Missing required CSV headers: {', '.join(missing_headers)}")
+
+            rows = list(reader)
+
+        if not rows:
+            raise ValueError("CSV file contains no data rows")
+
+        # Validate all rows first
+        for row_num, row in enumerate(rows, start=2):
+            row_errors = self.validate_csv_row(row, row_num)
+            if row_errors:
+                raise ValueError(f"Row {row_num} validation failed: {'; '.join(row_errors)}")
+
+        # Extract journal metadata from first row
+        first_data = {k: v.strip() for k, v in rows[0].items() if v.strip()}
+        missing = [f for f in ('journal_title', 'journal_issn') if f not in first_data]
+        if missing:
+            raise ValueError(f"First row missing required fields: {', '.join(missing)}")
+
+        journal_title = first_data['journal_title']
+        journal_issn = first_data['journal_issn']
+        # journal_metadata language = language of the journal title itself, default "en"
+        journal_language = first_data.get('journal_language', 'en')
+
+        # Build the single XML
+        xml_lines = [
+            '<?xml version="1.0" encoding="UTF-8"?>',
+            '<doi_batch version="5.4.0" xmlns="http://www.crossref.org/schema/5.4.0"',
+            '           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"',
+            '           xsi:schemaLocation="http://www.crossref.org/schema/5.4.0',
+            '           http://www.crossref.org/schema/crossref5.4.0.xsd">',
+            '',
+            '  <head>',
+            f'    <doi_batch_id>{batch_id}</doi_batch_id>',
+            f'    <timestamp>{timestamp}</timestamp>',
+            '    <depositor>',
+            f'      <depositor_name>{self.depositor_name}</depositor_name>',
+            f'      <email_address>{self.depositor_email}</email_address>',
+            '    </depositor>',
+            f'    <registrant>{self.depositor_name}</registrant>',
+            '  </head>',
+            '',
+            '  <body>',
+            '    <journal>',
+            f'      <journal_metadata language="{journal_language}">',
+            f'        <full_title>{self._escape_xml(journal_title)}</full_title>',
+            f'        <issn media_type="electronic">{journal_issn}</issn>',
+            '      </journal_metadata>',
+            '',
+        ]
+
+        dois = []
+        for row in rows:
+            data = {k: v.strip() for k, v in row.items() if v.strip()}
+            missing = [f for f in ('journal_title', 'journal_issn', 'language') if f not in data]
+            if missing:
+                raise ValueError(f"DOI {data.get('doi', '?')}: missing required fields: {', '.join(missing)}")
+
+            additional_authors = []
+            if 'additional_authors' in data:
+                additional_authors = self.parse_additional_authors(data['additional_authors'])
+
+            xml_lines.extend(self._generate_article_fragment(data, additional_authors))
+            xml_lines.append('')
+            dois.append(data['doi'])
+
+        xml_lines.extend([
+            '    </journal>',
+            '  </body>',
+            '</doi_batch>',
+        ])
+
+        metadata = {
+            'batch_id': batch_id,
+            'total_dois': len(dois),
+            'dois': dois,
+        }
+
+        return '\n'.join(xml_lines), metadata
 
     def _escape_xml(self, text: str) -> str:
         """Escape XML special characters."""

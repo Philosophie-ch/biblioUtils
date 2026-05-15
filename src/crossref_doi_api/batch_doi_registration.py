@@ -21,6 +21,7 @@ Requirements:
 """
 
 from pathlib import Path
+from datetime import datetime
 import csv
 import tempfile
 import time
@@ -207,6 +208,77 @@ class BatchDOIRegistration:
 
         return {'success': True, 'csv_dois': csv_dois, 'existing_dois': list(existing_set), 'conflicts': conflicts}
 
+    def register_bulk(
+        self,
+        csv_file: Union[str, Path],
+        use_sandbox: bool = True,
+        dry_run: bool = False,
+        max_retries: int = 3,
+    ) -> Dict[str, Any]:
+        """
+        Register all DOIs from CSV in a single XML submission.
+        """
+        csv_path = Path(csv_file)
+        if not csv_path.exists():
+            return {'success': False, 'error': f"CSV file not found: {csv_file}"}
+
+        base_output = os.getenv("CROSSREF_XML_OUTPUT_DIR", ".")
+        xml_output_dir = Path(base_output) / f"crossref_xmls_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        xml_output_dir.mkdir(parents=True, exist_ok=True)
+
+        try:
+            xml_content, metadata = self.csv_converter.generate_bulk_xml_from_csv(csv_file)
+        except Exception as e:
+            return {'success': False, 'error': f"XML generation failed: {e}"}
+
+        batch_id = metadata['batch_id']
+        total_dois = metadata['total_dois']
+        xml_path = xml_output_dir / f"{batch_id}.xml"
+
+        with open(xml_path, 'w', encoding='utf-8') as f:
+            f.write(xml_content)
+
+        xml_size_mb = xml_path.stat().st_size / (1024 * 1024)
+        print(f"📄 Bulk XML: {xml_path} ({xml_size_mb:.1f} MB, {total_dois} DOIs)")
+        print(f"   Batch ID: {batch_id}")
+
+        if xml_size_mb > 10:
+            return {'success': False, 'error': f"XML file exceeds Crossref 10MB limit ({xml_size_mb:.1f} MB)"}
+
+        if dry_run:
+            print("🔍 DRY RUN — XML saved, not submitted.")
+            return {
+                'success': True, 'batch_id': batch_id, 'total_dois': total_dois,
+                'xml_file': str(xml_path), 'environment': 'dry_run',
+            }
+
+        submit_username = self.sandbox_username if use_sandbox else self.username
+        submit_password = self.sandbox_password if use_sandbox else self.password
+        env = 'SANDBOX' if use_sandbox else 'PRODUCTION'
+
+        success = False
+        attempts = 0
+        while attempts < max_retries and not success:
+            attempts += 1
+            print(f"\n   Attempt {attempts}/{max_retries} — submitting to {env}...")
+            success = deposit_xml_content(submit_username, submit_password, xml_content, batch_id, use_sandbox=use_sandbox)
+
+            if not success and attempts < max_retries:
+                print(f"   ⏳ Waiting 5s before retry...")
+                time.sleep(5)
+
+        print(f"\n📊 Bulk Submission Summary:")
+        print(f"   Batch ID: {batch_id}")
+        print(f"   XML file: {xml_path}")
+        print(f"   Total DOIs: {total_dois}")
+        print(f"   Environment: {env}")
+        print(f"   Result: {'✅ SUCCESS' if success else '❌ FAILED'}")
+
+        return {
+            'success': success, 'batch_id': batch_id, 'total_dois': total_dois,
+            'xml_file': str(xml_path), 'environment': env.lower(), 'attempts': attempts,
+        }
+
     def register_batch(
         self,
         csv_file: Union[str, Path],
@@ -344,11 +416,14 @@ class BatchDOIRegistration:
                         }
                     )
         else:
-            # NORMAL MODE: Process CSV with in-memory XML generation
-            print("\n📡 Processing CSV and submitting DOIs to Crossref...")
+            # NORMAL MODE: Process CSV with XML generation + submission
+            base_output = os.getenv("CROSSREF_XML_OUTPUT_DIR", ".")
+            xml_output_dir = Path(base_output) / f"crossref_xmls_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+            xml_output_dir.mkdir(parents=True, exist_ok=True)
+            print(f"\n📡 Processing CSV and submitting DOIs to Crossref...")
+            print(f"   XML files saved to: {xml_output_dir}/")
 
             try:
-                # Use generator to process XML in memory - no temporary files!
                 xml_generator = self.csv_converter.generate_xml_from_csv(csv_file)
 
             except Exception as e:
@@ -359,7 +434,6 @@ class BatchDOIRegistration:
                     'results': [],
                 }
 
-            # Submit each XML directly from memory using the generator
             submission_results = []
             successful = 0
             failed = 0
@@ -368,7 +442,12 @@ class BatchDOIRegistration:
                 doi = metadata['doi']
                 title = metadata.get('title', '(no title)')
 
-                # Progress reporting every 100 entries
+                # Always save XML to disk
+                safe_doi = doi.replace('/', '_').replace('.', '_')
+                xml_path = xml_output_dir / f"{safe_doi}.xml"
+                with open(xml_path, 'w', encoding='utf-8') as xf:
+                    xf.write(xml_content)
+
                 if i % 100 == 0:
                     print(f"\n📈 {i} entries processed so far...")
 
@@ -427,7 +506,11 @@ class BatchDOIRegistration:
 
         # Summary
         total_processed = len(submission_results)
+        batch_id = submission_results[0]['batch_id'] if submission_results else 'unknown'
         print(f"\n📊 Batch Processing Summary:")
+        print(f"   Batch ID: {batch_id}")
+        if not dry_run:
+            print(f"   XML files: {xml_output_dir}/")
         print(f"   Total DOIs processed: {total_processed}")
         print(f"   Successful: {successful}")
         print(f"   Failed: {failed}")
