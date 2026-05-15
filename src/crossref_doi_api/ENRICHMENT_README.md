@@ -52,9 +52,39 @@ Instead of providing all metadata fields in CSV, you can now just provide:
 }
 ```
 
-## Mode 2: Bibliography Enrichment
+## Mode 2: Alexandria Nexus Enrichment (`--alexandria`)
 
-**Best for:** Legacy workflows with existing bibliography ODS files.
+**Best for:** When Alexandria Nexus is running and has the bibliography data. This is the preferred enrichment mode — it fetches all metadata (authors, title, year, journal, ISSN, language, pages, etc.) from the Alexandria REST API.
+
+The CSV only needs:
+- `bibkey` - the unique identifier in Alexandria
+- `doi` - the DOI to register
+- `link` - the URL where the publication can be accessed
+
+Everything else is fetched from the API:
+- **Bibitem metadata**: title, year, language, volume, number, pages, publisher, etc. via `/api/v1/bibitems/by-key/{bibkey}`
+- **Authors**: given name + family name via `/api/v1/bibitems/{id}/authors` + `/api/v1/authors/by-key/{key}`
+- **Journal metadata**: journal title + ISSN via `/api/v1/journals/by-key/{journal_key}` (cached per journal)
+
+**Setup:**
+```bash
+# Add to .env
+ALEXANDRIA_API_URL=http://localhost:8080
+ALEXANDRIA_API_KEY=your_api_key
+```
+
+**Usage:**
+```bash
+# Dry run
+python batch_doi_registration_enriched.py data.csv --bulk --alexandria --dry-run
+
+# Production
+python batch_doi_registration_enriched.py data.csv --bulk --alexandria --production
+```
+
+## Mode 3: Bibliography ODS Enrichment
+
+**Best for:** When Alexandria Nexus is not available, or for legacy workflows with existing bibliography ODS files.
 
 Instead of metadata JSON, provide:
 - `publication_key` (or `bibkey` or `_article_bib_key`) - the unique identifier from your bibliography
@@ -117,11 +147,15 @@ python batch_doi_registration_enriched.py full.csv --no-enrichment
 
 **Options:**
 - `--production` - Use production environment (default: sandbox)
-- `--delay SECONDS` - Delay between submissions (default: 3.0)
+- `--bulk` - Submit all DOIs in a single XML (recommended)
+- `--alexandria` - Use Alexandria Nexus API for enrichment
+- `--alexandria-url URL` - Override `ALEXANDRIA_API_URL` env var
+- `--alexandria-key KEY` - Override `ALEXANDRIA_API_KEY` env var
+- `--delay SECONDS` - Delay between submissions (default: 3.0, non-bulk mode)
 - `--retries NUMBER` - Max retry attempts (default: 3)
 - `--dry-run` - Generate XML without submitting
 - `--no-enrichment` - Disable bibliography enrichment
-- `--bibliography PATH` - Override bibliography path
+- `--bibliography PATH` - Override bibliography ODS path
 
 ### `update_dois_enriched.py`
 
@@ -183,7 +217,20 @@ python update_dois_enriched.py updates.csv
 - ✅ Articles can be batched together by journal/volume/issue
 - ✅ Case-insensitive CSV column names
 
-### Mode 2: Bibliography Lookup
+### Mode 2: Alexandria Nexus Lookup
+
+The `AlexandriaEnricher` class fetches metadata from the Alexandria Nexus REST API:
+
+```python
+from src.crossref_doi_api.bibliography_enrichment import AlexandriaEnricher
+
+enricher = AlexandriaEnricher()  # uses ALEXANDRIA_API_URL and ALEXANDRIA_API_KEY from .env
+metadata = enricher.enrich_metadata("smith-2024-epistemology")
+```
+
+It fetches bibitem data, authors (with proper sequencing), and journal metadata (title + ISSN) via the journal's `journal_key`. Journal responses are cached to avoid repeated API calls for articles in the same journal.
+
+### Mode 3: Bibliography ODS Lookup
 
 The `BibliographyEnricher` class loads your ODS file using polars and provides fast bibkey lookups:
 
@@ -260,18 +307,25 @@ python batch_doi_registration_enriched.py data.csv --bibliography /custom/path/b
 ```python
 from src.crossref_doi_api.batch_doi_registration_enriched import EnrichedBatchDOIRegistration
 
+# Using Alexandria Nexus
+batch = EnrichedBatchDOIRegistration(
+    username="your_username",
+    password="your_password",
+    use_alexandria=True,
+)
+
+# Or using bibliography ODS file
 batch = EnrichedBatchDOIRegistration(
     username="your_username",
     password="your_password",
     bibliography_path="/path/to/bibliography.ods",
-    enable_enrichment=True
 )
 
-results = batch.register_batch(
-    csv_file="minimal.csv",
-    use_sandbox=True,
-    dry_run=True
-)
+# Bulk submission (recommended)
+results = batch.register_bulk(csv_file="minimal.csv", use_sandbox=True, dry_run=True)
+
+# Or per-DOI submission
+results = batch.register_batch(csv_file="minimal.csv", use_sandbox=True, dry_run=True)
 ```
 
 ### Enrichment Only
@@ -476,7 +530,16 @@ DOI + JSON              Pydantic validation    content_type         Separate <jo
 metadata                article vs issue       detection            blocks for issues
 ```
 
-### Bibliography Enrichment Mode Architecture
+### Alexandria Enrichment Mode Architecture (`--alexandria`)
+```
+Minimal CSV → AlexandriaEnricher → Full Metadata → CSVToXMLConverter → Crossref API
+    ↓              ↓                      ↓                ↓
+ bibkey      REST API calls         author lookup     XML generation
+ + doi       /bibitems/by-key/      /authors/by-key/  (bulk or per-DOI)
+ + link      /journals/by-key/      field mapping
+```
+
+### Bibliography ODS Enrichment Mode Architecture
 ```
 Minimal CSV → BibliographyEnricher → Full Metadata → CSVToXMLConverter → Crossref API
     ↓              ↓                      ↓                ↓
@@ -492,7 +555,11 @@ Minimal CSV → BibliographyEnricher → Full Metadata → CSVToXMLConverter →
 
 ### Core Modules
 - `metadata_json_parser.py` - Pydantic-based metadata JSON parser and validator
-- `bibliography_enrichment.py` - Bibliography ODS lookup and enrichment
+- `bibliography_enrichment.py` - Enrichment via Alexandria Nexus API (`AlexandriaEnricher`) or bibliography ODS file (`BibliographyEnricher`)
+- `csv_to_xml.py` - CSV to Crossref XML generation (single + bulk modes)
+- `batch_doi_registration.py` - Base batch DOI registration with bulk submission support
+- `batch_doi_registration_enriched.py` - Enriched registration with `--alexandria` and `--bulk` flags
+- `check_submission_status.py` - Query Crossref submission results by batch ID
 - `update_dois.py` - Core DOI update logic with journal issue support
 - `update_dois_enriched.py` - Enhanced update script with both modes
 

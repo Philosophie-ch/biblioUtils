@@ -8,12 +8,14 @@ A complete toolkit for registering DOIs with Crossref using CSV files. This syst
 - ✅ **Journal Issue Support**: Register DOIs for journal issues and articles
 - ✅ **Metadata JSON Mode**: Pre-validated JSON metadata with Pydantic
 - ✅ **Bibliography Enrichment**: Auto-populate metadata from bibliography ODS files
-- ✅ **In-memory XML Generation**: No temporary files created - everything in memory
+- ✅ **Alexandria Nexus Enrichment**: Fetch metadata from the Alexandria REST API (`--alexandria`)
+- ✅ **Bulk Submission**: Package all DOIs into a single XML and submit in one POST (`--bulk`)
 - ✅ **Batch Processing**: Handle hundreds/thousands of DOIs efficiently
 - ✅ **Production & Sandbox**: Test safely before registering real DOIs
 - ✅ **Conflict Detection**: Check for existing DOIs before processing
 - ✅ **Retry Logic**: Automatic retry with exponential backoff
 - ✅ **Progress Tracking**: Progress updates every 100 entries
+- ✅ **XML Output Persistence**: Production XMLs always saved to `CROSSREF_XML_OUTPUT_DIR`
 - ✅ **Strong Typing**: Full mypy compliance for reliability
 
 ## Quick Start
@@ -77,9 +79,48 @@ python update_dois_enriched.py updates.csv --use-bibliography --dry-run
 
 See [ENRICHMENT_README.md](ENRICHMENT_README.md) for detailed usage.
 
-### `batch_doi_registration.py` - Main DOI Registration Tool
+### `batch_doi_registration_enriched.py` - Enriched DOI Registration (Recommended)
 
-Register DOIs from CSV files directly with Crossref.
+Register DOIs with automatic metadata enrichment from either a bibliography ODS file or the Alexandria Nexus API.
+
+**Basic Usage:**
+```bash
+# Using bibliography ODS file (default enrichment)
+python batch_doi_registration_enriched.py data.csv --bulk
+
+# Using Alexandria Nexus API for enrichment
+python batch_doi_registration_enriched.py data.csv --bulk --alexandria
+```
+
+**Options:**
+- `--production` - Use production environment (default: sandbox)
+- `--bulk` - Submit all DOIs in a single XML (recommended)
+- `--alexandria` - Use Alexandria Nexus API instead of ODS file
+- `--alexandria-url URL` - Override `ALEXANDRIA_API_URL` env var
+- `--alexandria-key KEY` - Override `ALEXANDRIA_API_KEY` env var
+- `--bibliography PATH` - Override `BIBLIOGRAPHY_ODS_PATH` env var
+- `--dry-run` - Generate XML without submitting
+- `--delay SECONDS` - Delay between submissions (default: 3.0, non-bulk mode)
+- `--retries NUMBER` - Max retry attempts (default: 3)
+- `--no-conflict-check` - Skip checking for existing DOIs
+- `--no-enrichment` - Disable enrichment, use full CSV directly
+- `--encoding` - CSV file encoding (default: auto-detect)
+
+**Examples:**
+```bash
+# Dry run with Alexandria to inspect generated XML
+python batch_doi_registration_enriched.py data.csv --bulk --alexandria --dry-run
+
+# Production bulk submission with Alexandria
+python batch_doi_registration_enriched.py data.csv --bulk --alexandria --production
+
+# Sandbox testing with ODS enrichment
+python batch_doi_registration_enriched.py data.csv --bulk
+```
+
+### `batch_doi_registration.py` - Base DOI Registration Tool
+
+Register DOIs from CSV files directly with Crossref (no enrichment).
 
 **Basic Usage:**
 ```bash
@@ -88,7 +129,7 @@ python batch_doi_registration.py publications.csv
 
 **Options:**
 - `--sandbox` - Use sandbox environment (default)
-- `--production` - Use production environment ⚠️ CREATES REAL DOIs
+- `--production` - Use production environment
 - `--delay SECONDS` - Delay between submissions (default: 3.0)
 - `--retries NUMBER` - Max retry attempts (default: 3)
 - `--verify` - Verify DOIs after registration
@@ -101,9 +142,6 @@ python batch_doi_registration.py data.csv --delay 2.0
 
 # Production with verification
 python batch_doi_registration.py data.csv --production --verify
-
-# High volume processing
-python batch_doi_registration.py large_dataset.csv --delay 1.0 --retries 5
 ```
 
 ### `csv_to_xml.py` - Standalone XML Generation
@@ -143,6 +181,18 @@ CROSSREF_MEMBER_ID=your_member_id
 # Sandbox credentials (optional, fallback to production)
 CROSSREF_SANDBOX_USERNAME=sandbox_username
 CROSSREF_SANDBOX_PASSWORD=sandbox_password
+
+# Bibliography ODS enrichment
+BIBLIOGRAPHY_ODS_PATH=/path/to/bibliography.ods
+AUTHORS_CSV_PATH=/path/to/authors.csv
+BIBKEY_COLUMN_NAME=bibkey
+
+# Alexandria Nexus enrichment (used with --alexandria flag)
+ALEXANDRIA_API_URL=http://localhost:8080
+ALEXANDRIA_API_KEY=your_api_key
+
+# Output directory for generated XML files
+CROSSREF_XML_OUTPUT_DIR=/path/to/output
 ```
 
 ### CSV Format
@@ -186,12 +236,27 @@ Perfect for processing thousands of DOIs efficiently.
 
 ## Architecture
 
+### Individual submission mode (default)
 ```
-CSV File → Generator → XML (in memory) → Crossref API → DOI Registration
-    ↓                                           ↓
-Validation                               Response Handling
-    ↓                                           ↓  
-Error Reporting                         Progress Tracking
+CSV File → Generator → XML per DOI (in memory) → Crossref API → DOI Registration
+    ↓                                                    ↓
+Validation                                        Response Handling
+    ↓                                                    ↓  
+Error Reporting                                  Progress Tracking
+```
+
+### Bulk submission mode (`--bulk`, recommended)
+```
+CSV File → All rows → Single XML <doi_batch> → One POST → Crossref API
+    ↓                        ↓                                  ↓
+Validation            Saved to disk                     Batch tracking
+```
+
+### Enrichment data sources
+```
+--alexandria:      CSV (bibkey+doi+link) → Alexandria Nexus API → Full metadata
+default:           CSV (bibkey+doi+link) → Bibliography ODS file → Full metadata
+--no-enrichment:   CSV must contain all required fields directly
 ```
 
 ## Troubleshooting
