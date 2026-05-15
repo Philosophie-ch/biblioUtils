@@ -38,6 +38,8 @@ dependencies = [
   "pypdf",
   "pdf2image",
   "chardet",
+  "jinja2",
+  "weasyprint",
 ]
 
 [project.optional-dependencies]
@@ -70,7 +72,9 @@ module = [
     "TexSoup.data",
     "pylatexenc",
     "pylatexenc.latex2text",
-    "habanero",      
+    "habanero",
+    "jinja2",
+    "weasyprint",
 ]
 ignore_missing_imports = true
 
