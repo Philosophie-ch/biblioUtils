@@ -267,7 +267,7 @@ def process_input_file(input_path: Path, bib_df: pl.DataFrame, bibkey_column: st
     if input_path.suffix.lower() == '.ods':
         df = pl.read_ods(str(input_path), has_header=True)
     elif input_path.suffix.lower() == '.csv':
-        df = pl.read_csv(str(input_path))
+        df = pl.read_csv(str(input_path), infer_schema_length=0)
     else:
         raise ValueError(f"Unsupported file format: {input_path.suffix}")
 
@@ -363,7 +363,7 @@ def main(
         raise FileNotFoundError(f"Bibliography file not found: {bibliography_path}")
 
     print(f"📚 Loading bibliography from: {bibliography_path}")
-    bib_df = pl.read_ods(str(bibliography_path), has_header=True, drop_empty_rows=True)
+    bib_df = pl.read_ods(str(bibliography_path), has_header=True, drop_empty_rows=True, infer_schema_length=0)
     print(f"   Loaded {len(bib_df)} entries")
 
     # Check for bibkey column
