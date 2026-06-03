@@ -21,7 +21,7 @@ def load_all_bibkeys(bibliography_file: str) -> tuple[str, ...]:
 
     match extension:
         case ".ods":
-            df = pl.read_ods(bibliography_file, has_header=True, drop_empty_rows=True)
+            df = pl.read_ods(bibliography_file, has_header=True, drop_empty_rows=True, columns=["bibkey"])
             bibkeys_l = df['bibkey'].to_list()
             bibkeys = tuple(remove_extra_whitespace(f"{bibkey}") for bibkey in bibkeys_l)
 
@@ -42,10 +42,10 @@ def remove_yaml_front_matter(content: str) -> str:
         # Split YAML front matter from the rest of the content
         yaml_delimiter = content.find('\n---', 3)  # Look for the closing '---'
         if yaml_delimiter != -1:
-            return content[yaml_delimiter + 3 :].lstrip()  # Strip YAML block
+            return content[yaml_delimiter + 4 :].lstrip()  # Strip YAML block
         elif yaml_delimiter := content.find('\n...', 3):
             if yaml_delimiter != -1:
-                return content[yaml_delimiter + 3 :].lstrip()
+                return content[yaml_delimiter + 4 :].lstrip()
     return content
 
 
@@ -167,16 +167,12 @@ def get_segregated_keys(
 
     md_content_pruned = remove_yaml_front_matter(md_content)
 
-    parser = mistune.create_markdown(renderer="ast")
-
-    text_bits = get_text_bits(md_content_pruned, parser)
-
     citation_pattern = re.compile(
         # Matches this structure: [-]@{bibkey}[pp. 1-2, sec. 3, chap. 4]
         r'(?<!\w)\[?([-]?)@{?([a-zA-Z0-9_.:$/%&+?<>~#-]+)}?(?:,?\s*(pp?\.\s[^\];]+|sec\.\s[^\];]+|chap\.\s[^\];]+)?)?(?:,\s*([^\];]+))?\]?'
     )
 
-    citations = get_citations(text_bits, citation_pattern)
+    citations = get_citations((md_content_pruned,), citation_pattern)
     non_keys, apparent_keys = get_keys(citations)
     direct_refs, non_biblio_bibkeys = biblio_keys(apparent_keys, all_bibkeys)
 
