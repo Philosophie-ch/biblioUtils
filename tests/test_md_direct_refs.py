@@ -6,6 +6,9 @@ from src.utils.md_direct_refs import (
     is_non_key,
     key_cleaner,
     gen_dltc_filename,
+    extract_year,
+    extract_family_names,
+    sort_bibkeys,
 )
 import re
 from pathlib import Path
@@ -254,3 +257,84 @@ Paragraph citation @huemer_m:2013c.
     assert "harman_gh:1996" in direct_refs
     assert "smith_j:2020" in direct_refs
     assert "blackburn_s:1998" in direct_refs
+
+
+# --- extract_year ---
+
+
+def test_extract_year_simple() -> None:
+    assert extract_year("smith_j:2020") == "2020"
+
+
+def test_extract_year_with_suffix() -> None:
+    assert extract_year("fine_k:2016a") == "2016"
+
+
+def test_extract_year_multiple_colons() -> None:
+    assert extract_year("van_der_berg:2019") == "2019"
+
+
+def test_extract_year_no_colon() -> None:
+    assert extract_year("nokey") == ""
+
+
+def test_extract_year_no_digits_after_colon() -> None:
+    assert extract_year("sec:intro") == ""
+
+
+# --- extract_family_names ---
+
+
+def test_extract_family_names_single() -> None:
+    assert extract_family_names("Smith, John") == ("Smith",)
+
+
+def test_extract_family_names_multiple() -> None:
+    assert extract_family_names("Smith, John and Doe, Jane") == ("Smith", "Doe")
+
+
+def test_extract_family_names_no_comma() -> None:
+    assert extract_family_names("Aristotle") == ("Aristotle",)
+
+
+def test_extract_family_names_empty() -> None:
+    assert extract_family_names("") == ()
+
+
+def test_extract_family_names_mixed() -> None:
+    assert extract_family_names("Van der Berg, Jan and Aristotle and Doe, Jane") == ("Van der Berg", "Aristotle", "Doe")
+
+
+# --- sort_bibkeys ---
+
+
+def test_sort_bibkeys_by_author_then_year_then_bibkey() -> None:
+    author_map = {
+        "zebra_z:2020": "Zebra, Zack",
+        "alpha_a:2019": "Alpha, Alice",
+        "alpha_a:2018": "Alpha, Alice",
+        "beta_b:2020": "Beta, Bob",
+    }
+    bibkeys = {"zebra_z:2020", "alpha_a:2019", "alpha_a:2018", "beta_b:2020"}
+    result = sort_bibkeys(bibkeys, author_map)
+    assert result == ("alpha_a:2018", "alpha_a:2019", "beta_b:2020", "zebra_z:2020")
+
+
+def test_sort_bibkeys_missing_author_sorts_first() -> None:
+    author_map = {
+        "known_a:2020": "Known, Alice",
+    }
+    bibkeys = {"known_a:2020", "unknown_x:2020"}
+    result = sort_bibkeys(bibkeys, author_map)
+    assert result == ("unknown_x:2020", "known_a:2020")
+
+
+def test_sort_bibkeys_same_author_year_differs_by_suffix() -> None:
+    author_map = {
+        "fine_k:2016": "Fine, Kit",
+        "fine_k:2016a": "Fine, Kit",
+        "fine_k:2016b": "Fine, Kit",
+    }
+    bibkeys = {"fine_k:2016b", "fine_k:2016", "fine_k:2016a"}
+    result = sort_bibkeys(bibkeys, author_map)
+    assert result == ("fine_k:2016", "fine_k:2016a", "fine_k:2016b")

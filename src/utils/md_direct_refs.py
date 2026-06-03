@@ -1,9 +1,8 @@
 import csv
 from pathlib import Path
 import polars as pl
-import mistune
 import re
-from typing import Dict, List, Tuple
+from typing import Callable, Dict, List, Tuple
 
 from src.sdk.ResultMonad import Err, try_except_wrapper
 from src.sdk.utils import get_logger, remove_extra_whitespace
@@ -11,7 +10,13 @@ from src.sdk.utils import get_logger, remove_extra_whitespace
 lgr = get_logger("Markdown Direct References Finder")
 
 
-def load_all_bibkeys(bibliography_file: str) -> tuple[str, ...]:
+type TBiblioData = Tuple[
+    tuple[str, ...],  # all bibkeys
+    dict[str, str],  # bibkey -> author string
+]
+
+
+def load_biblio_data(bibliography_file: str) -> TBiblioData:
 
     path = Path(bibliography_file)
     if not path.exists():
@@ -21,14 +26,19 @@ def load_all_bibkeys(bibliography_file: str) -> tuple[str, ...]:
 
     match extension:
         case ".ods":
-            df = pl.read_ods(bibliography_file, has_header=True, drop_empty_rows=True, columns=["bibkey"])
+            df = pl.read_ods(bibliography_file, has_header=True, drop_empty_rows=True, columns=["bibkey", "author"])
             bibkeys_l = df['bibkey'].to_list()
+            authors_l = df['author'].to_list()
             bibkeys = tuple(remove_extra_whitespace(f"{bibkey}") for bibkey in bibkeys_l)
+            author_map = {
+                remove_extra_whitespace(f"{bk}"): f"{au}" if au is not None else ""
+                for bk, au in zip(bibkeys_l, authors_l)
+            }
 
         case _:
             raise ValueError(f"Format '{extension}' not supported. Only ODS files are supported.")
 
-    return bibkeys
+    return bibkeys, author_map
 
 
 def read_file(file_path: Path) -> str:
@@ -47,19 +57,6 @@ def remove_yaml_front_matter(content: str) -> str:
             if yaml_delimiter != -1:
                 return content[yaml_delimiter + 4 :].lstrip()
     return content
-
-
-def get_text_bits(md_content: str, parser: mistune.Markdown) -> tuple[str]:
-
-    tokens = parser.parse(md_content)
-
-    children_nested = (token.get('children') for token in tokens[0] if token.get('children') is not None)
-
-    children = (item for sublist in children_nested for item in sublist)
-
-    text_bits = tuple(c.get('raw') for c in children if c.get('raw') is not None)
-
-    return text_bits
 
 
 def get_citations(text_bits: tuple[str], citation_pattern: re.Pattern[str]) -> set[str]:
@@ -181,6 +178,29 @@ type TResultDict = Dict[
 ]
 
 
+def extract_year(bibkey: str) -> str:
+    after_colon = bibkey[bibkey.rfind(":") + 1 :] if ":" in bibkey else ""
+    return after_colon[:4] if len(after_colon) >= 4 and after_colon[:4].isdigit() else ""
+
+
+def extract_family_names(author_str: str) -> tuple[str, ...]:
+    if not author_str:
+        return ()
+    return tuple(a.strip().split(", ")[0].strip() if ", " in a else a.strip() for a in author_str.split(" and "))
+
+
+def bibkey_sort_key(bibkey: str, author_map: dict[str, str]) -> tuple[tuple[str, ...], str, str]:
+    return (
+        tuple(n.lower() for n in extract_family_names(author_map.get(bibkey, ""))),
+        extract_year(bibkey),
+        bibkey,
+    )
+
+
+def sort_bibkeys(bibkeys: set[str], author_map: dict[str, str]) -> tuple[str, ...]:
+    return tuple(sorted(bibkeys, key=lambda bk: bibkey_sort_key(bk, author_map)))
+
+
 def validate_output_path(output_file: str) -> Path:
     path = Path(output_file)
     # if not path.exists():
@@ -195,7 +215,13 @@ def validate_output_path(output_file: str) -> Path:
 def write_output_csv(
     output_path: Path,
     result_dict: TResultDict,
+    author_map: dict[str, str],
+    sort: bool = False,
 ) -> None:
+
+    joiner: Callable[[set[str]], str] = (
+        (lambda s: ", ".join(sort_bibkeys(s, author_map))) if sort else (lambda s: ", ".join(s))
+    )
 
     with open(output_path, "w", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=["bibkey", "direct_references", "bibkey_not_in_bibfile", "non_bibkey"])
@@ -204,8 +230,8 @@ def write_output_csv(
         writer.writerows(
             {
                 "bibkey": bibkey,
-                "direct_references": ", ".join(direct_refs),
-                "bibkey_not_in_bibfile": ", ".join(bibkey_not_in_bibfile),
+                "direct_references": joiner(direct_refs),
+                "bibkey_not_in_bibfile": joiner(bibkey_not_in_bibfile),
                 "non_bibkey": ", ".join(non_bibkey),
             }
             for bibkey, (direct_refs, bibkey_not_in_bibfile, non_bibkey) in result_dict.items()
@@ -228,7 +254,7 @@ def gen_dltc_filename(path: Path) -> str:
 
 
 @try_except_wrapper(lgr)
-def main(bibliography_file: str, root_dir: str, output_file: str) -> None:
+def main(bibliography_file: str, root_dir: str, output_file: str, sort: bool = False) -> None:
 
     root_path = Path(root_dir)
     if not root_path.exists():
@@ -237,7 +263,7 @@ def main(bibliography_file: str, root_dir: str, output_file: str) -> None:
     output_path = validate_output_path(output_file)
 
     lgr.info(f"Loading bibkeys from '{bibliography_file}'...")
-    all_bibkeys = load_all_bibkeys(bibliography_file)
+    all_bibkeys, author_map = load_biblio_data(bibliography_file)
     lgr.info(f"Loaded {len(all_bibkeys)} bibkeys.")
 
     lgr.info(f"Looking for markdown files in '{root_dir}'...")
@@ -262,8 +288,8 @@ def main(bibliography_file: str, root_dir: str, output_file: str) -> None:
     lgr.info(f"Processing {len(markdown_files)} markdown files...")
     result_dict: TResultDict = {f"{f.stem}": get_segregated_keys(all_bibkeys, read_file(f)) for f in markdown_files}
 
-    lgr.info(f"Writing output to '{output_file}'...")
-    write_output_csv(output_path, result_dict)
+    lgr.info(f"Writing output to '{output_file}'..." + (" (sorted)" if sort else ""))
+    write_output_csv(output_path, result_dict, author_map, sort)
 
     lgr.info("Success! All articles processed.")
 
@@ -299,9 +325,16 @@ def cli() -> None:
         required=True,
     )
 
+    parser.add_argument(
+        "-s",
+        "--sort",
+        action="store_true",
+        help="Sort bibkeys by author family name, then year, then bibkey.",
+    )
+
     args = parser.parse_args()
 
-    result = main(args.bibliography_file, args.root_dir, args.output_file)
+    result = main(args.bibliography_file, args.root_dir, args.output_file, args.sort)
 
     if isinstance(result, Err):
         lgr.error("An error occured. Please check the logs for more information.")
