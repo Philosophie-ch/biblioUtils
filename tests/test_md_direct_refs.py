@@ -138,6 +138,10 @@ def test_key_cleaner_leading_colons() -> None:
     assert key_cleaner(":smith_j:2020") == "smith_j:2020"
 
 
+def test_key_cleaner_leading_hyphen() -> None:
+    assert key_cleaner("-bailey_am:2021") == "bailey_am:2021"
+
+
 def test_key_cleaner_double_dashes() -> None:
     assert key_cleaner("smith_j:2020--268") == "smith_j:2020"
 

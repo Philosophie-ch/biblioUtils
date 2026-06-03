@@ -119,9 +119,8 @@ def key_cleaner(k: str) -> str:
     while key and key[-1] in ".?!,;:":
         key = key[:-1]
 
-    # Remove colons at the beginning of the key, if any
-    if key.startswith(":"):
-        key = key[1:]
+    # Remove leading colons or hyphens, if any
+    key = key.lstrip(":-")
 
     return key
 
