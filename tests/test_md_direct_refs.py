@@ -111,6 +111,22 @@ def test_key_cleaner_trailing_dots() -> None:
     assert key_cleaner("smith_j:2020.") == "smith_j:2020"
 
 
+def test_key_cleaner_trailing_question_mark() -> None:
+    assert key_cleaner("fine_k:2016?") == "fine_k:2016"
+
+
+def test_key_cleaner_trailing_exclamation() -> None:
+    assert key_cleaner("smith_j:2020!") == "smith_j:2020"
+
+
+def test_key_cleaner_trailing_comma() -> None:
+    assert key_cleaner("smith_j:2020,") == "smith_j:2020"
+
+
+def test_key_cleaner_trailing_semicolon() -> None:
+    assert key_cleaner("smith_j:2020;") == "smith_j:2020"
+
+
 def test_key_cleaner_trailing_colons() -> None:
     assert key_cleaner("smith_j:2020:") == "smith_j:2020"
 

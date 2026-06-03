@@ -118,12 +118,8 @@ def key_cleaner(k: str) -> str:
     if "--" in key:
         key = key[: key.find("--")]
 
-    # Remove trailing dots, if any
-    if key.endswith("."):
-        key = key[:-1]
-
-    # Remove trailing colons, if any
-    if key.endswith(":"):
+    # Remove trailing punctuation, if any
+    while key and key[-1] in ".?!,;:":
         key = key[:-1]
 
     # Remove colons at the beginning of the key, if any
