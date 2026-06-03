@@ -248,8 +248,11 @@ class BatchDOIRegistration:
         if dry_run:
             print("🔍 DRY RUN — XML saved, not submitted.")
             return {
-                'success': True, 'batch_id': batch_id, 'total_dois': total_dois,
-                'xml_file': str(xml_path), 'environment': 'dry_run',
+                'success': True,
+                'batch_id': batch_id,
+                'total_dois': total_dois,
+                'xml_file': str(xml_path),
+                'environment': 'dry_run',
             }
 
         submit_username = self.sandbox_username if use_sandbox else self.username
@@ -261,7 +264,9 @@ class BatchDOIRegistration:
         while attempts < max_retries and not success:
             attempts += 1
             print(f"\n   Attempt {attempts}/{max_retries} — submitting to {env}...")
-            success = deposit_xml_content(submit_username, submit_password, xml_content, batch_id, use_sandbox=use_sandbox)
+            success = deposit_xml_content(
+                submit_username, submit_password, xml_content, batch_id, use_sandbox=use_sandbox
+            )
 
             if not success and attempts < max_retries:
                 print(f"   ⏳ Waiting 5s before retry...")
@@ -275,8 +280,12 @@ class BatchDOIRegistration:
         print(f"   Result: {'✅ SUCCESS' if success else '❌ FAILED'}")
 
         return {
-            'success': success, 'batch_id': batch_id, 'total_dois': total_dois,
-            'xml_file': str(xml_path), 'environment': env.lower(), 'attempts': attempts,
+            'success': success,
+            'batch_id': batch_id,
+            'total_dois': total_dois,
+            'xml_file': str(xml_path),
+            'environment': env.lower(),
+            'attempts': attempts,
         }
 
     def register_batch(

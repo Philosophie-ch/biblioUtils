@@ -392,19 +392,23 @@ class CSVToXMLConverter:
         lines.append('        </titles>')
 
         lines.append('        <contributors>')
-        lines.extend([
-            '          <person_name sequence="first" contributor_role="author">',
-            f'            <given_name>{self._escape_xml(data["author_given_name"])}</given_name>',
-            f'            <surname>{self._escape_xml(data["author_surname"])}</surname>',
-            '          </person_name>',
-        ])
-        for author in additional_authors:
-            lines.extend([
-                '          <person_name sequence="additional" contributor_role="author">',
-                f'            <given_name>{self._escape_xml(author["given_name"])}</given_name>',
-                f'            <surname>{self._escape_xml(author["surname"])}</surname>',
+        lines.extend(
+            [
+                '          <person_name sequence="first" contributor_role="author">',
+                f'            <given_name>{self._escape_xml(data["author_given_name"])}</given_name>',
+                f'            <surname>{self._escape_xml(data["author_surname"])}</surname>',
                 '          </person_name>',
-            ])
+            ]
+        )
+        for author in additional_authors:
+            lines.extend(
+                [
+                    '          <person_name sequence="additional" contributor_role="author">',
+                    f'            <given_name>{self._escape_xml(author["given_name"])}</given_name>',
+                    f'            <surname>{self._escape_xml(author["surname"])}</surname>',
+                    '          </person_name>',
+                ]
+            )
         lines.append('        </contributors>')
 
         lines.extend(['        <publication_date media_type="online">', f'          <year>{data["_year"]}</year>'])
@@ -422,13 +426,15 @@ class CSVToXMLConverter:
                 lines.append(f'          <last_page>{data["last_page"]}</last_page>')
             lines.append('        </pages>')
 
-        lines.extend([
-            '        <doi_data>',
-            f'          <doi>{data["doi"]}</doi>',
-            f'          <resource>{data["link"]}</resource>',
-            '        </doi_data>',
-            '      </journal_article>',
-        ])
+        lines.extend(
+            [
+                '        <doi_data>',
+                f'          <doi>{data["doi"]}</doi>',
+                f'          <resource>{data["link"]}</resource>',
+                '        </doi_data>',
+                '      </journal_article>',
+            ]
+        )
 
         return lines
 
@@ -522,11 +528,13 @@ class CSVToXMLConverter:
             xml_lines.append('')
             dois.append(data['doi'])
 
-        xml_lines.extend([
-            '    </journal>',
-            '  </body>',
-            '</doi_batch>',
-        ])
+        xml_lines.extend(
+            [
+                '    </journal>',
+                '  </body>',
+                '</doi_batch>',
+            ]
+        )
 
         metadata = {
             'batch_id': batch_id,

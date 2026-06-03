@@ -39,7 +39,9 @@ def fetch_authors(base_url: str, bibitem_id: int, api_key: str) -> list[JsonDict
         author_key = j.get("author_key")
         if not author_key:
             continue
-        author_resp = requests.get(f"{base_url}/api/v1/authors/by-key/{author_key}", headers=_headers(api_key), timeout=30)
+        author_resp = requests.get(
+            f"{base_url}/api/v1/authors/by-key/{author_key}", headers=_headers(api_key), timeout=30
+        )
         author_resp.raise_for_status()
         authors.append(author_resp.json())
     return authors
